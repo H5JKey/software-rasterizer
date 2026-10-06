@@ -8,7 +8,7 @@
 #include <print>
 
 #include "image_utils.h"
-#include "mesh_utils.hpp"
+#include "mesh-loader.hpp"
 
 int main(int argc, char** argv) {
     const char* obj_path = argc > 1 ? argv[1] : "resources/Bunny.obj";
@@ -26,11 +26,11 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    std::print("Mesh {}", obj_path);
-    std::print("  vertices:   {}", m.verts.size());
-    std::print("  triangles:  {}", m.indices.size() / 3);
-    std::print("  normals:    {}", m.normals.empty() ? "yes" : "no");
-    std::print("  tex coords: {}", m.tcs.empty() ? "yes" : "no");
+    std::println("Mesh {}", obj_path);
+    std::println("  vertices:   {}", m.vertices.size());
+    std::println("  triangles:  {}", m.indices.size() / 3);
+    std::println("  normals:    {}", !m.normals.empty() ? "yes" : "no");
+    std::println("  tex coords: {}", !m.texcoords.empty() ? "yes" : "no");
 
     int w = 0, h = 0;
     float* img = load_image_f32_rgb(tex_path, &w, &h, 1.0f);

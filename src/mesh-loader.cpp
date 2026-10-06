@@ -1,4 +1,4 @@
-#include "mesh_utils.hpp"
+#include "mesh-loader.hpp"
 
 #define TINYOBJ_LOADER_C_IMPLEMENTATION
 #include <stdint.h>
@@ -117,11 +117,11 @@ static uint32_t hash_vertex(int v_idx, int vt_idx, int vn_idx) {
 
 static int valid_index(int idx, unsigned int count) { return idx >= 0 && (unsigned int)idx < count; }
 
-Mesh load_obj(std::filesystem::path filename) {
+Mesh load_obj(const std::filesystem::path& filename) {
     Mesh m;
-    m.verts.clear();
+    m.vertices.clear();
     m.normals.clear();
-    m.tcs.clear();
+    m.texcoords.clear();
     m.indices.clear();
 
     tinyobj_attrib_t attrib;
@@ -138,18 +138,18 @@ Mesh load_obj(std::filesystem::path filename) {
     const int num_corners = attrib.num_faces;
 
     int has_normals = attrib.num_normals > 0;
-    int has_tcs = attrib.num_texcoords > 0;
+    int has_texcoords = attrib.num_texcoords > 0;
     int valid = num_corners % 3 == 0;
     for (int i = 0; i < num_corners && valid; i++) {
         valid = valid_index(attrib.faces[i].v_idx, attrib.num_vertices);
         has_normals = has_normals && valid_index(attrib.faces[i].vn_idx, attrib.num_normals);
-        has_tcs = has_tcs && valid_index(attrib.faces[i].vt_idx, attrib.num_texcoords);
+        has_texcoords = has_texcoords && valid_index(attrib.faces[i].vt_idx, attrib.num_texcoords);
     }
 
     if (valid) {
-        m.verts.reserve(num_corners);
+        m.vertices.reserve(num_corners);
         if (has_normals) m.normals.reserve(num_corners);
-        if (has_tcs) m.tcs.reserve(num_corners);
+        if (has_texcoords) m.texcoords.reserve(num_corners);
         m.indices.resize(num_corners);
 
         uint32_t table_size = 1;
@@ -159,7 +159,7 @@ Mesh load_obj(std::filesystem::path filename) {
 
         for (int i = 0; i < num_corners; i++) {
             const int v_idx = attrib.faces[i].v_idx;
-            const int vt_idx = has_tcs ? attrib.faces[i].vt_idx : -1;
+            const int vt_idx = has_texcoords ? attrib.faces[i].vt_idx : -1;
             const int vn_idx = has_normals ? attrib.faces[i].vn_idx : -1;
 
             uint32_t slot = hash_vertex(v_idx, vt_idx, vn_idx) & (table_size - 1);
@@ -168,19 +168,20 @@ Mesh load_obj(std::filesystem::path filename) {
                 slot = (slot + 1) & (table_size - 1);
 
             if (table[slot].id < 0) {
-                const uint32_t id = static_cast<uint32_t>(m.verts.size());
+                const uint32_t id = static_cast<uint32_t>(m.vertices.size());
 
                 table[slot].v_idx = v_idx;
                 table[slot].vt_idx = vt_idx;
                 table[slot].vn_idx = vn_idx;
                 table[slot].id = static_cast<int>(id);
 
-                m.verts.emplace_back(attrib.vertices[3 * v_idx + 0], attrib.vertices[3 * v_idx + 1],
-                                     attrib.vertices[3 * v_idx + 2]);
+                m.vertices.emplace_back(attrib.vertices[3 * v_idx + 0], attrib.vertices[3 * v_idx + 1],
+                                        attrib.vertices[3 * v_idx + 2]);
                 if (has_normals)
                     m.normals.emplace_back(attrib.normals[3 * vn_idx + 0], attrib.normals[3 * vn_idx + 1],
                                            attrib.normals[3 * vn_idx + 2]);
-                if (has_tcs) m.tcs.emplace_back(attrib.texcoords[2 * vt_idx + 0], attrib.texcoords[2 * vt_idx + 1]);
+                if (has_texcoords)
+                    m.texcoords.emplace_back(attrib.texcoords[2 * vt_idx + 0], attrib.texcoords[2 * vt_idx + 1]);
             }
 
             m.indices[i] = table[slot].id;
