@@ -1,2 +1,3 @@
-build*/
-/swapped_rb.png
+
+build/
+.vscode/
