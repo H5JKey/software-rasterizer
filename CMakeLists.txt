@@ -25,7 +25,7 @@ else()
 endif()
 
 add_library(raster
-    src/image_utils.c
+    src/image-utils.cpp
     src/mesh-loader.cpp
     src/vectors.cpp
 )
@@ -37,8 +37,8 @@ target_include_directories(raster PUBLIC
 
 # --- консольная программа: меш + картинка -> PNG ---------------------------
 
-add_executable(main_cli src/main_cli.cpp)
-target_link_libraries(main_cli PRIVATE raster)
+add_executable(main-cli src/main-cli.cpp)
+target_link_libraries(main-cli PRIVATE raster)
 
 
 # --- программа с окном (нужен GLFW) ---------------------------------------
@@ -66,13 +66,13 @@ if (NOT glfw3_FOUND)
 endif()
 
 if(glfw3_FOUND AND OpenGL_FOUND)
-    add_executable(main_app src/main_app.cpp)
-    target_link_libraries(main_app PRIVATE 
+    add_executable(main-app src/main-app.cpp)
+    target_link_libraries(main-app PRIVATE 
         glfw 
         OpenGL::GL
         raster
     )
 else()
-    message(WARNING "GLFW or OpenGL not found: main_app will not be built. "
+    message(WARNING "GLFW or OpenGL not found: main-app will not be built. "
                     "On Debian/Ubuntu run: sudo apt install libglfw3-dev")
 endif()

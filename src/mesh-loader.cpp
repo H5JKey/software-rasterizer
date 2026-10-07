@@ -1,5 +1,7 @@
 #include "mesh-loader.hpp"
 
+#include <stdexcept>
+
 #define TINYOBJ_LOADER_C_IMPLEMENTATION
 #include <stdint.h>
 #include <stdio.h>
@@ -47,32 +49,18 @@ static char* mmap_file(size_t* len, const char* filename) {
     int fd;
 
     fd = open(filename, O_RDONLY);
-    if (fd == -1) {
-        perror("open");
-        return NULL;
-    }
+    if (fd == -1) throw std::runtime_error(std::format("Failed to open {}: {}", filename, strerror(errno)));
 
-    if (fstat(fd, &sb) == -1) {
-        perror("fstat");
-        return NULL;
-    }
+    if (fstat(fd, &sb) == -1)
+        throw std::runtime_error(std::format("fstat for {} failed: {}", filename, strerror(errno)));
 
-    if (!S_ISREG(sb.st_mode)) {
-        fprintf(stderr, "%s is not a file\n", filename);
-        return NULL;
-    }
+    if (!S_ISREG(sb.st_mode)) throw std::runtime_error(std::format("{} is not a file.", filename));
 
     p = (char*)mmap(0, sb.st_size, PROT_READ, MAP_SHARED, fd, 0);
 
-    if (p == MAP_FAILED) {
-        perror("mmap");
-        return NULL;
-    }
+    if (p == MAP_FAILED) throw std::runtime_error(std::format("mmap for {} failed: {}", filename, strerror(errno)));
 
-    if (close(fd) == -1) {
-        perror("close");
-        return NULL;
-    }
+    if (close(fd) == -1) throw std::runtime_error(std::format("close for {} failed: {}", filename, strerror(errno)));
 
     (*len) = sb.st_size;
 
@@ -90,12 +78,7 @@ static void get_file_data(void* ctx, const char* filename, const int is_mtl, con
     // This example uses mmap(), so no free() required.
     (void)ctx;
 
-    if (!filename) {
-        fprintf(stderr, "null filename\n");
-        (*data) = NULL;
-        (*len) = 0;
-        return;
-    }
+    if (!filename) throw std::runtime_error("null file");
 
     size_t data_len = 0;
 
@@ -133,7 +116,7 @@ Mesh load_obj(const std::filesystem::path& filename) {
     unsigned int flags = TINYOBJ_FLAG_TRIANGULATE;
     int ret = tinyobj_parse_obj(&attrib, &shapes, &num_shapes, &materials, &num_materials, filename.c_str(),
                                 get_file_data, NULL, flags);
-    if (ret != TINYOBJ_SUCCESS) return m;
+    if (ret != TINYOBJ_SUCCESS) throw std::runtime_error(std::format("Failed to load mesh {}", filename.string()));
 
     const int num_corners = attrib.num_faces;
 
@@ -189,7 +172,7 @@ Mesh load_obj(const std::filesystem::path& filename) {
 
         delete[] (table);
     } else {
-        std::cerr << std::format("load_obj: {} has invalid face indices", filename.string()) << std::endl;
+        throw std::runtime_error(std::format("load_obj failed: {} has invalid face indices", filename.string()));
     }
 
     tinyobj_attrib_free(&attrib);
