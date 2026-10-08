@@ -1,5 +1,5 @@
-#ifndef MESH_UTILS_H
-#define MESH_UTILS_H
+#pragma once
+
 #include <vector>
 
 #include "vectors.hpp"
@@ -10,5 +10,3 @@ struct Mesh {
     std::vector<vec2> texcoords;
     std::vector<int> indices;
 };
-
-#endif

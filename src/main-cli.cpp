@@ -19,6 +19,8 @@ int main(int argc, char** argv) try {
     std::println("  normals:    {}", !m.normals.empty() ? "yes" : "no");
     std::println("  tex coords: {}", !m.texcoords.empty() ? "yes" : "no");
 
+    
+
     return EXIT_SUCCESS;
 } catch (const std::exception& e) {
     std::cerr << e.what() << std::endl;

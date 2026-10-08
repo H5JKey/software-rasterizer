@@ -71,13 +71,6 @@ static char* mmap_file(size_t* len, const char* filename) {
 
 static void get_file_data(void* ctx, const char* filename, const int is_mtl, const char* obj_filename, char** data,
                           size_t* len) {
-    // NOTE: If you allocate the buffer with malloc(),
-    // You can define your own memory management struct and pass it through `ctx`
-    // to store the pointer and free memories at clean up stage(when you quit an
-    // app)
-    // This example uses mmap(), so no free() required.
-    (void)ctx;
-
     if (!filename) throw std::runtime_error("null file");
 
     size_t data_len = 0;
