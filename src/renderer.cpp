@@ -1,9 +1,13 @@
 #include "renderer.hpp"
 
 #include <cmath>
+#include <cstddef>
+#include <vector>
+
+#include "math/transforms.hpp"
 
 void Renderer::drawTriangle(FrameBuffer& buffer, vec2 v0, vec2 v1, vec2 v2, Color v0Color, Color v1Color,
-                            Color v2Color) {
+                            Color v2Color) const {
     float edge012 = edgeFunction(v0, v1, v2);
     if (fabs(edge012) < 0.001) return;
 
@@ -32,7 +36,27 @@ void Renderer::drawTriangle(FrameBuffer& buffer, vec2 v0, vec2 v1, vec2 v2, Colo
             float v = e20p / edge012;
             float w = e01p / edge012;
 
-            buffer.pixels[py * buffer.width + px] = v0Color;
+            buffer.pixels[py * buffer.width + px] = v0Color * u + v1Color * v + v2Color * w;
         }
+    }
+}
+
+void Renderer::drawMesh(FrameBuffer& buffer, const Mesh& mesh, const mat4& MVP) const {
+    std::vector<vec2> verticesFrameBufferCoords(mesh.vertices.size());
+
+    for (size_t idx = 0; idx < mesh.vertices.size(); idx++) {
+        const auto& v = mesh.vertices[idx];
+        vec4 v4(v.x, v.y, v.z, 1.0);
+        v4 = MVP * v4;
+        vec3 ndc(v4.x / v4.w, v4.y / v4.w, v4.z / v4.w);
+        verticesFrameBufferCoords[idx] = vec2((ndc.x + 1) * buffer.width / 2, (ndc.y + 1) * buffer.height / 2);
+    }
+
+    for (size_t tri_idx = 0; tri_idx < mesh.indices.size() / 3; tri_idx++) {
+        const auto& v0 = verticesFrameBufferCoords[mesh.indices[3 * tri_idx]];
+        const auto& v1 = verticesFrameBufferCoords[mesh.indices[3 * tri_idx + 1]];
+        const auto& v2 = verticesFrameBufferCoords[mesh.indices[3 * tri_idx + 2]];
+
+        drawTriangle(buffer, v0, v1, v2, {1, 1, 1, 1}, {1, 1, 1, 1}, {1, 1, 1, 1});
     }
 }

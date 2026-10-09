@@ -28,7 +28,6 @@ add_library(raster
     src/image-utils.cpp
     src/mesh-loader.cpp
     src/renderer.cpp
-    src/vectors.cpp
 )
 
 target_include_directories(raster PUBLIC
@@ -36,10 +35,16 @@ target_include_directories(raster PUBLIC
     include
 )
 
+find_package(OpenMP)
+
+target_link_libraries(raster PRIVATE  OpenMP::OpenMP_CXX)
+
 # --- консольная программа: меш + картинка -> PNG ---------------------------
 
 add_executable(main-cli src/main-cli.cpp)
-target_link_libraries(main-cli PRIVATE raster)
+target_link_libraries(main-cli PRIVATE 
+    raster 
+)
 
 
 # --- программа с окном (нужен GLFW) ---------------------------------------
@@ -47,6 +52,7 @@ target_link_libraries(main-cli PRIVATE raster)
 set(OpenGL_GL_PREFERENCE GLVND)
 find_package(OpenGL)
 find_package(glfw3 3.3 QUIET)
+
 
 if (NOT glfw3_FOUND)
     include(FetchContent)

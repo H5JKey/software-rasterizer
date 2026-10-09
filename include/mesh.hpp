@@ -2,7 +2,7 @@
 
 #include <vector>
 
-#include "vectors.hpp"
+#include "math/vectors.hpp"
 
 struct Mesh {
     std::vector<vec3> vertices;

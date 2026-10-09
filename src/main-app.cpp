@@ -1,83 +1,119 @@
-// Пример вывода массива пикселей в окно в реальном времени.
-//
-// Каждый кадр программа на CPU заполняет буфер RGBA8 цветом, который плавно
-// меняется со временем, и выводит его в окно через glDrawPixels. OpenGL здесь
-// используется только для того, чтобы показать готовый массив пикселей.
-// Раз в секунду в консоль печатается среднее время кадра.
-
 #include <GL/gl.h>
 #include <GLFW/glfw3.h>
-#include <math.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
 
-#include <print>
+#include <cmath>
+#include <cstdint>
+#include <cstdio>
+#include <cstdlib>
 
 #include "frame-buffer.hpp"
+#include "math/transforms.hpp"
+#include "mesh-loader.hpp"
 #include "renderer.hpp"
 
 static void glfw_error_callback(int error, const char* description) {
     fprintf(stderr, "GLFW error %d: %s\n", error, description);
 }
 
-static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
-    if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) glfwSetWindowShouldClose(window, GLFW_TRUE);
+static void key_callback(GLFWwindow* window, int key, int /*scancode*/, int action, int /*mods*/
+) {
+    if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
+        glfwSetWindowShouldClose(window, GLFW_TRUE);
+    }
 }
 
 int main(int argc, char** argv) {
     glfwSetErrorCallback(glfw_error_callback);
-    if (!glfwInit()) return 1;
+
+    if (!glfwInit()) {
+        return 1;
+    }
 
     glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
-    GLFWwindow* window = glfwCreateWindow(400, 300, "Software Renderer", NULL, NULL);
+
+    GLFWwindow* window = glfwCreateWindow(800, 600, "Software Renderer", nullptr, nullptr);
+
     if (!window) {
         glfwTerminate();
         return 1;
     }
-    int fb_width = 0, fb_height = 0;
+
+    int fb_width = 0;
+    int fb_height = 0;
     glfwGetFramebufferSize(window, &fb_width, &fb_height);
+
     FrameBuffer buffer(fb_width, fb_height);
     Renderer renderer;
 
+    Mesh m = load_obj("../resources/Bunny.obj");
+
     glfwMakeContextCurrent(window);
     glfwSetKeyCallback(window, key_callback);
-    // 0 - не ждать вертикальной синхронизации: время кадра показывает реальную
-    // скорость программы, а не частоту монитора. 1 - включить vsync.
     glfwSwapInterval(0);
 
-    // Число пикселей окна может отличаться от width x height (масштабирование
-    // экрана в ОС), поэтому размер буфера берём у самого окна.
+    constexpr float pi = 3.14159265358979323846f;
 
-    // RGBA8, строки снизу вверх: первая строка буфера - нижняя строка окна
+    const vec3 eye(0.0f, 0.0f, 2.5f);
+    const vec3 target(0.0f, 0.0f, 0.0f);
+    const vec3 up(0.0f, 1.0f, 0.0f);
+
+    const mat4 V = lookAt(eye, target, up);
+
+    const mat4 P =
+        perspective(60.0f * pi / 180.0f, static_cast<float>(fb_width) / static_cast<float>(fb_height), 0.1f, 100.0f);
 
     double prev_time = glfwGetTime();
     double report_time = prev_time;
     int report_frames = 0;
 
+    double raster_time = 0.0;
+    double output_time = 0.0;
+
     while (!glfwWindowShouldClose(window)) {
         const double now = glfwGetTime();
-        const float dt = (float)(now - prev_time);  // длительность прошлого кадра, с
         prev_time = now;
 
-        renderer.drawTriangle(buffer, {0, 0}, {0, 100}, {100, 100}, {255, 255, 255, 255}, {255, 255, 255, 255},
-                              {255, 255, 255, 255});
+        const float angle = static_cast<float>(now) * 0.8f;
+
+        const mat4 M = rotationY(angle);
+
+        const mat4 MVP = P * V * M;
+
+        double start = glfwGetTime();
+        buffer.clear();
+        renderer.drawMesh(buffer, m, MVP);
+
+        raster_time += glfwGetTime() - start;
+
+        start = glfwGetTime();
 
         glDrawPixels(fb_width, fb_height, GL_RGBA, GL_FLOAT, buffer.pixels.data());
+
         glfwSwapBuffers(window);
         glfwPollEvents();
 
-        report_frames++;
+        output_time += glfwGetTime() - start;
+
+        ++report_frames;
+
         const double elapsed = glfwGetTime() - report_time;
+
         if (elapsed >= 1.0) {
-            printf("frame time: %.3f ms (%.1f FPS)\n", 1000.0 * elapsed / report_frames, report_frames / elapsed);
+            printf(
+                "frame time: %.3f ms (%.1f FPS) | "
+                "output: %.3f | raster: %.3f\n",
+                1000.0 * elapsed / report_frames, report_frames / elapsed, output_time, raster_time);
             fflush(stdout);
+
             report_time += elapsed;
             report_frames = 0;
+            raster_time = 0.0;
+            output_time = 0.0;
         }
     }
 
     glfwDestroyWindow(window);
     glfwTerminate();
+
     return 0;
 }
