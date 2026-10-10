@@ -26,7 +26,7 @@ endif()
 
 add_library(raster
     src/image-utils.cpp
-    src/mesh-loader.cpp
+    src/mesh-utils.cpp
     src/renderer.cpp
 )
 

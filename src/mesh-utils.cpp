@@ -1,4 +1,4 @@
-#include "mesh-loader.hpp"
+#include "mesh-utils.hpp"
 
 #include <stdexcept>
 
@@ -19,7 +19,10 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include <iostream>
+#include <limits>
+
+#include "math/transforms.hpp"
+#include "mesh.hpp"
 #endif
 
 static char* mmap_file(size_t* len, const char* filename) {
@@ -171,5 +174,33 @@ Mesh load_obj(const std::filesystem::path& filename) {
     tinyobj_attrib_free(&attrib);
     tinyobj_shapes_free(shapes, num_shapes);
     tinyobj_materials_free(materials, num_materials);
+    m.normalizationMatrix = calculateNormalizationMatrix(m);
     return m;
+}
+
+mat4 calculateNormalizationMatrix(const Mesh& mesh) {
+    AABB aabb = calculateABB(mesh);
+    const vec3 size = aabb.size();
+    const float maxSize = std::max(size.x, std::max(size.y, size.z));
+    if (maxSize <= 0.0) return mat4::identity();
+    float factor = 1.0f / maxSize;
+    return scale(vec3(factor, factor, factor)) * translation(-aabb.center());
+}
+
+AABB calculateABB(const Mesh& mesh) {
+    AABB aabb;
+    aabb.min = vec3(std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity(),
+                    std::numeric_limits<float>::infinity());
+    aabb.max = vec3(-std::numeric_limits<float>::infinity(), -std::numeric_limits<float>::infinity(),
+                    -std::numeric_limits<float>::infinity());
+    for (const auto& v : mesh.vertices) {
+        aabb.min.x = std::min(aabb.min.x, v.x);
+        aabb.min.y = std::min(aabb.min.y, v.y);
+        aabb.min.z = std::min(aabb.min.z, v.z);
+
+        aabb.max.x = std::max(aabb.max.x, v.x);
+        aabb.max.y = std::max(aabb.max.y, v.y);
+        aabb.max.z = std::max(aabb.max.z, v.z);
+    }
+    return aabb;
 }

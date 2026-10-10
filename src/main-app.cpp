@@ -9,7 +9,7 @@
 #include "camera.hpp"
 #include "frame-buffer.hpp"
 #include "math/transforms.hpp"
-#include "mesh-loader.hpp"
+#include "mesh-utils.hpp"
 #include "renderer.hpp"
 
 static void glfw_error_callback(int error, const char* description) {
@@ -48,8 +48,8 @@ int main(int argc, char** argv) {
 
     Mesh m = load_obj("../resources/Bunny.obj");
     std::vector<Object> objects;
-    objects.emplace_back(m, mat4::identity());
-    objects.emplace_back(m, mat4::identity());
+    objects.emplace_back(m);
+    objects.emplace_back(m);
 
     glfwMakeContextCurrent(window);
     glfwSetKeyCallback(window, key_callback);
@@ -76,8 +76,8 @@ int main(int argc, char** argv) {
 
         const float angle = static_cast<float>(now) * 0.8f;
 
-        objects[0].setTransform(translation(vec3(-1, 0, 0)) * rotationY(angle) * scale(vec3(0.5, 0.5, 0.5)));
-        objects[1].setTransform(translation(vec3(1, 0, 0)) * rotationY(-2 * angle) * scale(vec3(0.8, 0.8, 0.8)));
+        objects[0].updateTransform(translation(vec3(-1, 0, 0)) * rotationY(angle) * scale(vec3(0.5, 0.5, 0.5)));
+        objects[1].updateTransform(translation(vec3(1, 0, 0)) * rotationY(-2 * angle) * scale(vec3(0.8, 0.8, 0.8)));
 
         double start = glfwGetTime();
         buffer.clear();

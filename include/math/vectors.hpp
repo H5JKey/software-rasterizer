@@ -87,6 +87,14 @@ struct Vec : VecStorage<N> {
         return result;
     }
 
+    constexpr Vec<N> operator-() const {
+        Vec<N> result;
+        for (std::size_t idx = 0; idx < N; idx++) {
+            result[idx] = -this->data[idx];
+        }
+        return result;
+    }
+
     template <typename S>
         requires(std::is_arithmetic_v<S>)
     constexpr Vec<N> operator*(S scalar) const {

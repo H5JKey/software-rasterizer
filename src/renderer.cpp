@@ -69,7 +69,7 @@ void Renderer::drawMesh(FrameBuffer& buffer, const Mesh& mesh, const mat4& MVP, 
 void Renderer::drawObjects(FrameBuffer& buffer, const std::vector<Object>& objects, const Camera& camera) const {
     mat4 VP = camera.getPerspectiveMatrix() * camera.getLookAtMatrix();
     for (const auto& object : objects) {
-        mat4 MVP = VP * object.transform;
+        mat4 MVP = VP * object.getModelMatrix();
         drawMesh(buffer, object.mesh, MVP, camera.zNear);
     }
 }

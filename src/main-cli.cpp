@@ -2,7 +2,7 @@
 #include <iostream>
 #include <print>
 
-#include "mesh-loader.hpp"
+#include "mesh-utils.hpp"
 
 int main(int argc, char** argv) try {
     if (argc != 2) {
@@ -18,8 +18,6 @@ int main(int argc, char** argv) try {
     std::println("  triangles:  {}", m.indices.size() / 3);
     std::println("  normals:    {}", !m.normals.empty() ? "yes" : "no");
     std::println("  tex coords: {}", !m.texcoords.empty() ? "yes" : "no");
-
-    
 
     return EXIT_SUCCESS;
 } catch (const std::exception& e) {
