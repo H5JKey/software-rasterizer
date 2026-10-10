@@ -1,10 +1,12 @@
 #include <GL/gl.h>
 #include <GLFW/glfw3.h>
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <limits>
 
 #include "camera.hpp"
 #include "frame-buffer.hpp"
@@ -16,11 +18,18 @@ static void glfw_error_callback(int error, const char* description) {
     fprintf(stderr, "GLFW error %d: %s\n", error, description);
 }
 
+enum class VisualizationMode { Final = 1, DepthBuffer = 2 };
+VisualizationMode visualizationMode = VisualizationMode::Final;
+
 static void key_callback(GLFWwindow* window, int key, int /*scancode*/, int action, int /*mods*/
 ) {
     if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
         glfwSetWindowShouldClose(window, GLFW_TRUE);
     }
+
+    if (key == GLFW_KEY_1 && action == GLFW_PRESS) visualizationMode = VisualizationMode::Final;
+
+    if (key == GLFW_KEY_2 && action == GLFW_PRESS) visualizationMode = VisualizationMode::DepthBuffer;
 }
 
 int main(int argc, char** argv) {
@@ -76,8 +85,8 @@ int main(int argc, char** argv) {
 
         const float angle = static_cast<float>(now) * 0.8f;
 
-        objects[0].updateTransform(translation(vec3(-1, 0, 0)) * rotationY(angle) * scale(vec3(0.5, 0.5, 0.5)));
-        objects[1].updateTransform(translation(vec3(1, 0, 0)) * rotationY(-2 * angle) * scale(vec3(0.8, 0.8, 0.8)));
+        objects[0].updateTransform(rotationY(angle) * translation(vec3(-1, 0, 0)) * scale(vec3(0.5, 0.5, 0.5)));
+        objects[1].updateTransform(rotationY(-2 * angle));
 
         double start = glfwGetTime();
         buffer.clear();
@@ -87,7 +96,23 @@ int main(int argc, char** argv) {
 
         start = glfwGetTime();
 
-        glDrawPixels(fb_width, fb_height, GL_RGBA, GL_FLOAT, buffer.pixels.data());
+        if (visualizationMode == VisualizationMode::Final)
+            glDrawPixels(fb_width, fb_height, GL_RGBA, GL_FLOAT, buffer.pixels.data());
+        else if (visualizationMode == VisualizationMode::DepthBuffer) {
+            std::vector<Color> output(buffer.depth.size());
+            size_t idx = 0;
+            float denumerator = 1.0f / (buffer.maxDepth - buffer.minDepth);
+            std::generate(output.begin(), output.end(), [&idx, denumerator, &buffer]() {
+                float depth = buffer.depth[idx++];
+                if (depth != std::numeric_limits<float>::infinity()) {
+                    float gray = (depth - buffer.minDepth) * denumerator;
+                    return Color(gray, gray, gray, 1.0f);
+                } else {
+                    return Color(0, 0, 0, 1);
+                }
+            });
+            glDrawPixels(fb_width, fb_height, GL_RGBA, GL_FLOAT, output.data());
+        }
 
         glfwSwapBuffers(window);
         glfwPollEvents();

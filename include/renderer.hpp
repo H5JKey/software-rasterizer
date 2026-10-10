@@ -7,9 +7,15 @@
 #include "object.hpp"
 
 class Renderer {
-   private:
-    void drawTriangle(FrameBuffer& buffer, vec2 v0, vec2 v1, vec2 v2, Color v0Color, Color v1Color,
-                      Color v2Color) const;
+    struct VertexAttributes {
+        vec2 position;
+        float depth;
+        Color color;
+    };
+
+   public:
+    void drawTriangle(FrameBuffer& buffer, const VertexAttributes& v0, const VertexAttributes& v1,
+                      const VertexAttributes& v2, float area) const;
 
     void drawMesh(FrameBuffer& buffer, const Mesh& mesh, const mat4& MVP, float zNear) const;
 

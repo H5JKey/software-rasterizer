@@ -5,17 +5,15 @@
 #include <vector>
 
 #include "frame-buffer.hpp"
+#include "math/vectors.hpp"
 
-void Renderer::drawTriangle(FrameBuffer& buffer, vec2 v0, vec2 v1, vec2 v2, Color v0Color, Color v1Color,
-                            Color v2Color) const {
-    float edge012 = edgeFunction(v0, v1, v2);
-    if (fabs(edge012) < 0.001) return;
-
+void Renderer::drawTriangle(FrameBuffer& buffer, const VertexAttributes& v0, const VertexAttributes& v1,
+                            const VertexAttributes& v2, float edge012) const {
     float width = static_cast<float>(buffer.width);
     float height = static_cast<float>(buffer.height);
 
-    vec2 bboxMin = min(min(v0, v1), v2);
-    vec2 bboxMax = max(max(v0, v1), v2);
+    vec2 bboxMin = min(min(v0.position, v1.position), v2.position);
+    vec2 bboxMax = max(max(v0.position, v1.position), v2.position);
 
     bboxMax.x = std::min(std::max(std::ceil(bboxMax.x), 0.f), width);
     bboxMax.y = std::min(std::max(std::ceil(bboxMax.y), 0.f), height);
@@ -26,9 +24,9 @@ void Renderer::drawTriangle(FrameBuffer& buffer, vec2 v0, vec2 v1, vec2 v2, Colo
         for (int px = static_cast<int>(bboxMin.x); px < static_cast<int>(bboxMax.x); px++) {
             vec2 center(px + 0.5f, py + 0.5f);
 
-            float e12p = edgeFunction(v1, v2, center);
-            float e20p = edgeFunction(v2, v0, center);
-            float e01p = edgeFunction(v0, v1, center);
+            float e12p = edgeFunction(v1.position, v2.position, center);
+            float e20p = edgeFunction(v2.position, v0.position, center);
+            float e01p = edgeFunction(v0.position, v1.position, center);
 
             if (e12p * edge012 < 0 || e20p * edge012 < 0 || e01p * edge012 < 0) continue;
 
@@ -36,7 +34,15 @@ void Renderer::drawTriangle(FrameBuffer& buffer, vec2 v0, vec2 v1, vec2 v2, Colo
             float v = e20p / edge012;
             float w = e01p / edge012;
 
-            buffer.pixels[py * buffer.width + px] = v0Color * u + v1Color * v + v2Color * w;
+            Color color = v0.color * u + v1.color * v + v2.color * w;
+            float depth = v0.depth * u + v1.depth * v + v2.depth * w;
+            std::size_t idx = py * buffer.width + px;
+            if (depth < buffer.depth[idx]) {
+                buffer.pixels[idx] = color;
+                buffer.depth[idx] = depth;
+                buffer.maxDepth = std::max(buffer.depth[idx], buffer.maxDepth);
+                buffer.minDepth = std::min(buffer.depth[idx], buffer.minDepth);
+            }
         }
     }
 }
@@ -52,17 +58,18 @@ void Renderer::drawMesh(FrameBuffer& buffer, const Mesh& mesh, const mat4& MVP, 
             clipCoords[mesh.indices[3 * tri_idx + 2]].w < zNear)
             continue;
 
-        vec2 verticesFramebufferCoords[3];
-        float verticesDepth[3];
+        VertexAttributes attributes[3];
         for (int i = 0; i < 3; i++) {
             const auto& v = clipCoords[mesh.indices[3 * tri_idx + i]];
-            float iw = 1.0f / v.w;
-            verticesFramebufferCoords[i].x = (v.x * iw + 1) * 0.5f * buffer.width;
-            verticesFramebufferCoords[i].y = (v.y * iw + 1) * 0.5f * buffer.height;
-            verticesDepth[i] = v.z * iw;
+            float invW = 1.0f / v.w;
+            attributes[i].position.x = (v.x * invW + 1) * 0.5f * buffer.width;
+            attributes[i].position.y = (v.y * invW + 1) * 0.5f * buffer.height;
+            attributes[i].depth = v.z * invW;
+            attributes[i].color = Color(1, 1, 1, 1);
         }
-        drawTriangle(buffer, verticesFramebufferCoords[0], verticesFramebufferCoords[1], verticesFramebufferCoords[2],
-                     {1, 1, 1, 1}, {1, 1, 1, 1}, {1, 1, 1, 1});
+        float area = edgeFunction(attributes[0].position, attributes[1].position, attributes[2].position);
+        if (area < 1e-6) continue; /* degenerate triangle or not visible */
+        drawTriangle(buffer, attributes[0], attributes[1], attributes[2], area);
     }
 }
 
