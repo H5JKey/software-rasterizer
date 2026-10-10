@@ -10,12 +10,20 @@ struct Matrix {
     template <typename... Args>
         requires(sizeof...(Args) == N * N)
     constexpr Matrix(Args... args) : data{static_cast<float>(args)...} {}
-    constexpr Matrix() = default;
+    constexpr Matrix() : data{} {};
 
     constexpr float& operator[](std::size_t idx) { return data[idx]; }
     constexpr const float& operator[](std::size_t idx) const { return data[idx]; }
     constexpr float& operator[](std::size_t row, std::size_t col) { return data[N * row + col]; }
     constexpr const float& operator[](std::size_t row, std::size_t col) const { return data[N * row + col]; }
+
+    static constexpr Matrix<N> identity() {
+        Matrix<N> result;
+        for (std::size_t i = 0; i < N; i++) {
+            result[i, i] = 1;
+        }
+        return result;
+    }
 
     constexpr Vec<N> operator*(const Vec<N>& vec) const {
         Vec<N> result;

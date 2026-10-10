@@ -4,7 +4,7 @@
 #include <cstddef>
 #include <vector>
 
-#include "math/transforms.hpp"
+#include "frame-buffer.hpp"
 
 void Renderer::drawTriangle(FrameBuffer& buffer, vec2 v0, vec2 v1, vec2 v2, Color v0Color, Color v1Color,
                             Color v2Color) const {
@@ -41,22 +41,35 @@ void Renderer::drawTriangle(FrameBuffer& buffer, vec2 v0, vec2 v1, vec2 v2, Colo
     }
 }
 
-void Renderer::drawMesh(FrameBuffer& buffer, const Mesh& mesh, const mat4& MVP) const {
-    std::vector<vec2> verticesFrameBufferCoords(mesh.vertices.size());
+void Renderer::drawMesh(FrameBuffer& buffer, const Mesh& mesh, const mat4& MVP, float zNear) const {
+    std::vector<vec4> clipCoords;
+    clipCoords.reserve(mesh.vertices.size());
 
-    for (size_t idx = 0; idx < mesh.vertices.size(); idx++) {
-        const auto& v = mesh.vertices[idx];
-        vec4 v4(v.x, v.y, v.z, 1.0);
-        v4 = MVP * v4;
-        vec3 ndc(v4.x / v4.w, v4.y / v4.w, v4.z / v4.w);
-        verticesFrameBufferCoords[idx] = vec2((ndc.x + 1) * buffer.width / 2, (ndc.y + 1) * buffer.height / 2);
-    }
+    for (const auto& v : mesh.vertices) clipCoords.emplace_back(MVP * vec4(v.x, v.y, v.z, 1.0f));
 
     for (size_t tri_idx = 0; tri_idx < mesh.indices.size() / 3; tri_idx++) {
-        const auto& v0 = verticesFrameBufferCoords[mesh.indices[3 * tri_idx]];
-        const auto& v1 = verticesFrameBufferCoords[mesh.indices[3 * tri_idx + 1]];
-        const auto& v2 = verticesFrameBufferCoords[mesh.indices[3 * tri_idx + 2]];
+        if (clipCoords[mesh.indices[3 * tri_idx]].w < zNear || clipCoords[mesh.indices[3 * tri_idx + 1]].w < zNear ||
+            clipCoords[mesh.indices[3 * tri_idx + 2]].w < zNear)
+            continue;
 
-        drawTriangle(buffer, v0, v1, v2, {1, 1, 1, 1}, {1, 1, 1, 1}, {1, 1, 1, 1});
+        vec2 verticesFramebufferCoords[3];
+        float verticesDepth[3];
+        for (int i = 0; i < 3; i++) {
+            const auto& v = clipCoords[mesh.indices[3 * tri_idx + i]];
+            float iw = 1.0f / v.w;
+            verticesFramebufferCoords[i].x = (v.x * iw + 1) * 0.5f * buffer.width;
+            verticesFramebufferCoords[i].y = (v.y * iw + 1) * 0.5f * buffer.height;
+            verticesDepth[i] = v.z * iw;
+        }
+        drawTriangle(buffer, verticesFramebufferCoords[0], verticesFramebufferCoords[1], verticesFramebufferCoords[2],
+                     {1, 1, 1, 1}, {1, 1, 1, 1}, {1, 1, 1, 1});
+    }
+}
+
+void Renderer::drawObjects(FrameBuffer& buffer, const std::vector<Object>& objects, const Camera& camera) const {
+    mat4 VP = camera.getPerspectiveMatrix() * camera.getLookAtMatrix();
+    for (const auto& object : objects) {
+        mat4 MVP = VP * object.transform;
+        drawMesh(buffer, object.mesh, MVP, camera.zNear);
     }
 }

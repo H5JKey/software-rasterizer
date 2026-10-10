@@ -3,7 +3,7 @@
 #include "vectors.hpp"
 #include <cmath>
 
-constexpr mat4 ranslation(const vec3& offset) {
+constexpr mat4 translation(const vec3& offset) {
      return mat4(
         1, 0, 0, offset.x,
         0, 1, 0, offset.y,

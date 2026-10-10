@@ -6,6 +6,7 @@
 #include <cstdio>
 #include <cstdlib>
 
+#include "camera.hpp"
 #include "frame-buffer.hpp"
 #include "math/transforms.hpp"
 #include "mesh-loader.hpp"
@@ -46,6 +47,9 @@ int main(int argc, char** argv) {
     Renderer renderer;
 
     Mesh m = load_obj("../resources/Bunny.obj");
+    std::vector<Object> objects;
+    objects.emplace_back(m, mat4::identity());
+    objects.emplace_back(m, mat4::identity());
 
     glfwMakeContextCurrent(window);
     glfwSetKeyCallback(window, key_callback);
@@ -53,15 +57,12 @@ int main(int argc, char** argv) {
 
     constexpr float pi = 3.14159265358979323846f;
 
-    const vec3 eye(0.0f, 0.0f, 2.5f);
+    const vec3 eye(0.0f, 1.0f, 3.5f);
     const vec3 target(0.0f, 0.0f, 0.0f);
     const vec3 up(0.0f, 1.0f, 0.0f);
 
-    const mat4 V = lookAt(eye, target, up);
-
-    const mat4 P =
-        perspective(60.0f * pi / 180.0f, static_cast<float>(fb_width) / static_cast<float>(fb_height), 0.1f, 100.0f);
-
+    Camera camera(eye, target, up, 75.0f * pi / 180.0f, static_cast<float>(fb_width) / static_cast<float>(fb_height),
+                  0.01, 100);
     double prev_time = glfwGetTime();
     double report_time = prev_time;
     int report_frames = 0;
@@ -75,13 +76,12 @@ int main(int argc, char** argv) {
 
         const float angle = static_cast<float>(now) * 0.8f;
 
-        const mat4 M = rotationY(angle);
-
-        const mat4 MVP = P * V * M;
+        objects[0].setTransform(translation(vec3(-1, 0, 0)) * rotationY(angle) * scale(vec3(0.5, 0.5, 0.5)));
+        objects[1].setTransform(translation(vec3(1, 0, 0)) * rotationY(-2 * angle) * scale(vec3(0.8, 0.8, 0.8)));
 
         double start = glfwGetTime();
         buffer.clear();
-        renderer.drawMesh(buffer, m, MVP);
+        renderer.drawObjects(buffer, objects, camera);
 
         raster_time += glfwGetTime() - start;
 
