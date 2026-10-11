@@ -16,3 +16,5 @@ AABB calculateABB(const Mesh& mesh);
 Mesh load_obj(const std::filesystem::path& filename);
 
 mat4 calculateNormalizationMatrix(const Mesh& mesh);
+
+void calculateNormals(Mesh& mesh);

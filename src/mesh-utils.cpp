@@ -175,6 +175,7 @@ Mesh load_obj(const std::filesystem::path& filename) {
     tinyobj_shapes_free(shapes, num_shapes);
     tinyobj_materials_free(materials, num_materials);
     m.normalizationMatrix = calculateNormalizationMatrix(m);
+    if (m.normals.size() != m.vertices.size()) calculateNormalizationMatrix(m);
     return m;
 }
 
@@ -203,4 +204,20 @@ AABB calculateABB(const Mesh& mesh) {
         aabb.max.z = std::max(aabb.max.z, v.z);
     }
     return aabb;
+}
+
+void calculateNormals(Mesh& mesh) {
+    mesh.normals.resize(mesh.vertices.size());
+    for (std::size_t tri_idx = 0; tri_idx < mesh.indices.size() / 3; tri_idx++) {
+        vec3 v0 = mesh.vertices[mesh.indices[3 * tri_idx]];
+        vec3 v1 = mesh.vertices[mesh.indices[3 * tri_idx + 1]];
+        vec3 v2 = mesh.vertices[mesh.indices[3 * tri_idx + 2]];
+
+        vec3 normal = normalize(cross(v1 - v0, v2 - v0));
+
+        mesh.normals[mesh.indices[3 * tri_idx]] = mesh.normals[mesh.indices[3 * tri_idx]] + normal;
+        mesh.normals[mesh.indices[3 * tri_idx + 1]] = mesh.normals[mesh.indices[3 * tri_idx + 1]] + normal;
+        mesh.normals[mesh.indices[3 * tri_idx + 2]] = mesh.normals[mesh.indices[3 * tri_idx + 2]] + normal;
+    }
+    for (auto& n : mesh.normals) n = normalize(n);
 }

@@ -135,7 +135,11 @@ template <std::size_t N>
 constexpr Vec<N> normalize(const Vec<N>& v) {
     Vec<N> result;
     float len = length(v);
-    for (std::size_t idx = 0; idx < N; idx++) result[idx] = v.data[idx] / len;
+    if (len < 1e-8f) {
+        return Vec<N>();
+    }
+    float invLen = 1.0f / len;
+    for (std::size_t idx = 0; idx < N; idx++) result[idx] = v.data[idx] * invLen;
     return result;
 }
 

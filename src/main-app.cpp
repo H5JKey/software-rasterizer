@@ -3,22 +3,22 @@
 
 #include <algorithm>
 #include <cmath>
-#include <cstdint>
 #include <cstdio>
-#include <cstdlib>
 #include <limits>
 
 #include "camera.hpp"
 #include "frame-buffer.hpp"
 #include "math/transforms.hpp"
+#include "math/vectors.hpp"
 #include "mesh-utils.hpp"
 #include "renderer.hpp"
+#include "scene.hpp"
 
 static void glfw_error_callback(int error, const char* description) {
     fprintf(stderr, "GLFW error %d: %s\n", error, description);
 }
 
-enum class VisualizationMode { Final = 1, DepthBuffer = 2 };
+enum class VisualizationMode { Final = 1, DepthBuffer = 2, Normals = 3 };
 VisualizationMode visualizationMode = VisualizationMode::Final;
 
 static void key_callback(GLFWwindow* window, int key, int /*scancode*/, int action, int /*mods*/
@@ -30,6 +30,8 @@ static void key_callback(GLFWwindow* window, int key, int /*scancode*/, int acti
     if (key == GLFW_KEY_1 && action == GLFW_PRESS) visualizationMode = VisualizationMode::Final;
 
     if (key == GLFW_KEY_2 && action == GLFW_PRESS) visualizationMode = VisualizationMode::DepthBuffer;
+
+    if (key == GLFW_KEY_3 && action == GLFW_PRESS) visualizationMode = VisualizationMode::Normals;
 }
 
 int main(int argc, char** argv) {
@@ -56,9 +58,6 @@ int main(int argc, char** argv) {
     Renderer renderer;
 
     Mesh m = load_obj("../resources/Bunny.obj");
-    std::vector<Object> objects;
-    objects.emplace_back(m);
-    objects.emplace_back(m);
 
     glfwMakeContextCurrent(window);
     glfwSetKeyCallback(window, key_callback);
@@ -72,6 +71,16 @@ int main(int argc, char** argv) {
 
     Camera camera(eye, target, up, 75.0f * pi / 180.0f, static_cast<float>(fb_width) / static_cast<float>(fb_height),
                   0.01, 100);
+
+    Scene::Lighting lighting;
+    lighting.ambientColor = Color(0.1, 0.1, 0.1, 1);
+    lighting.light.color = Color(1, 1, 1, 1);
+    lighting.light.direction = normalize(vec3(1, 0, 0));
+    Scene scene(camera, lighting);
+
+    scene.objects.emplace_back(m);
+    scene.objects.emplace_back(m);
+
     double prev_time = glfwGetTime();
     double report_time = prev_time;
     int report_frames = 0;
@@ -85,12 +94,12 @@ int main(int argc, char** argv) {
 
         const float angle = static_cast<float>(now) * 0.8f;
 
-        objects[0].updateTransform(rotationY(angle) * translation(vec3(-1, 0, 0)) * scale(vec3(0.5, 0.5, 0.5)));
-        objects[1].updateTransform(rotationY(-2 * angle));
+        scene.objects[0].updateTransform(rotationY(angle) * translation(vec3(-1, 0, 0)) * scale(vec3(0.5, 0.5, 0.5)));
+        scene.objects[1].updateTransform(rotationY(-2 * angle));
 
         double start = glfwGetTime();
         buffer.clear();
-        renderer.drawObjects(buffer, objects, camera);
+        renderer.drawScene(buffer, scene);
 
         raster_time += glfwGetTime() - start;
 
@@ -100,19 +109,26 @@ int main(int argc, char** argv) {
             glDrawPixels(fb_width, fb_height, GL_RGBA, GL_FLOAT, buffer.pixels.data());
         else if (visualizationMode == VisualizationMode::DepthBuffer) {
             std::vector<Color> output(buffer.depth.size());
-            size_t idx = 0;
-            float denumerator = 1.0f / (buffer.maxDepth - buffer.minDepth);
-            std::generate(output.begin(), output.end(), [&idx, denumerator, &buffer]() {
-                float depth = buffer.depth[idx++];
-                if (depth != std::numeric_limits<float>::infinity()) {
-                    float gray = (depth - buffer.minDepth) * denumerator;
-                    return Color(gray, gray, gray, 1.0f);
-                } else {
-                    return Color(0, 0, 0, 1);
+
+            float maxDepth = -std::numeric_limits<float>::infinity();
+            float minDepth = std::numeric_limits<float>::infinity();
+            for (float depth : buffer.depth) {
+                if (std::isfinite(depth)) {
+                    if (depth > maxDepth) maxDepth = depth;
+                    if (depth < minDepth) minDepth = depth;
                 }
-            });
+            }
+
+            float denumerator = 1.0f / (maxDepth - minDepth);
+            std::transform(buffer.depth.begin(), buffer.depth.end(), output.begin(),
+                           [denumerator, minDepth](float depth) {
+                               if (!std::isfinite(depth)) return Color(0, 0, 0, 1);
+                               float gray = (depth - minDepth) * denumerator;
+                               return Color(gray, gray, gray, 1.0f);
+                           });
             glDrawPixels(fb_width, fb_height, GL_RGBA, GL_FLOAT, output.data());
-        }
+        } else if (visualizationMode == VisualizationMode::Normals)
+            glDrawPixels(fb_width, fb_height, GL_RGBA, GL_FLOAT, buffer.normals.data());
 
         glfwSwapBuffers(window);
         glfwPollEvents();

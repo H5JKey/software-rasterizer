@@ -8,7 +8,7 @@
 #include "math/vectors.hpp"
 
 void Renderer::drawTriangle(FrameBuffer& buffer, const VertexAttributes& v0, const VertexAttributes& v1,
-                            const VertexAttributes& v2, float edge012) const {
+                            const VertexAttributes& v2, float edge012, const Scene::Lighting& lighting) const {
     float width = static_cast<float>(buffer.width);
     float height = static_cast<float>(buffer.height);
 
@@ -34,22 +34,29 @@ void Renderer::drawTriangle(FrameBuffer& buffer, const VertexAttributes& v0, con
             float v = e20p / edge012;
             float w = e01p / edge012;
 
-            Color color = v0.color * u + v1.color * v + v2.color * w;
             float depth = v0.depth * u + v1.depth * v + v2.depth * w;
             std::size_t idx = py * buffer.width + px;
             if (depth < buffer.depth[idx]) {
+                Color color = v0.color * u + v1.color * v + v2.color * w;
+                vec3 normal = normalize(v0.normal * u + v1.normal * v + v2.normal * w);
+
+                color = lighting.ambientColor + color * std::max(0.f, dot(normal, lighting.light.direction));
+
                 buffer.pixels[idx] = color;
                 buffer.depth[idx] = depth;
-                buffer.maxDepth = std::max(buffer.depth[idx], buffer.maxDepth);
-                buffer.minDepth = std::min(buffer.depth[idx], buffer.minDepth);
+                buffer.normals[idx] = Color(normal.x, normal.y, normal.z, 1.0);
             }
         }
     }
 }
 
-void Renderer::drawMesh(FrameBuffer& buffer, const Mesh& mesh, const mat4& MVP, float zNear) const {
+void Renderer::drawMesh(FrameBuffer& buffer, const Mesh& mesh, const mat4& M, const mat4& VP, float zNear,
+                        const Scene::Lighting& lighting) const {
     std::vector<vec4> clipCoords;
     clipCoords.reserve(mesh.vertices.size());
+
+    mat4 MVP = VP * M;
+    mat3 normalMat = M.upperLeft<3>().inverse().transpose();
 
     for (const auto& v : mesh.vertices) clipCoords.emplace_back(MVP * vec4(v.x, v.y, v.z, 1.0f));
 
@@ -57,7 +64,6 @@ void Renderer::drawMesh(FrameBuffer& buffer, const Mesh& mesh, const mat4& MVP, 
         if (clipCoords[mesh.indices[3 * tri_idx]].w < zNear || clipCoords[mesh.indices[3 * tri_idx + 1]].w < zNear ||
             clipCoords[mesh.indices[3 * tri_idx + 2]].w < zNear)
             continue;
-
         VertexAttributes attributes[3];
         for (int i = 0; i < 3; i++) {
             const auto& v = clipCoords[mesh.indices[3 * tri_idx + i]];
@@ -66,17 +72,18 @@ void Renderer::drawMesh(FrameBuffer& buffer, const Mesh& mesh, const mat4& MVP, 
             attributes[i].position.y = (v.y * invW + 1) * 0.5f * buffer.height;
             attributes[i].depth = v.z * invW;
             attributes[i].color = Color(1, 1, 1, 1);
+            vec3 normal = mesh.normals[mesh.indices[3 * tri_idx + i]];
+            attributes[i].normal = normalMat * normal;
         }
         float area = edgeFunction(attributes[0].position, attributes[1].position, attributes[2].position);
         if (area < 1e-6) continue; /* degenerate triangle or not visible */
-        drawTriangle(buffer, attributes[0], attributes[1], attributes[2], area);
+        drawTriangle(buffer, attributes[0], attributes[1], attributes[2], area, lighting);
     }
 }
 
-void Renderer::drawObjects(FrameBuffer& buffer, const std::vector<Object>& objects, const Camera& camera) const {
-    mat4 VP = camera.getPerspectiveMatrix() * camera.getLookAtMatrix();
-    for (const auto& object : objects) {
-        mat4 MVP = VP * object.getModelMatrix();
-        drawMesh(buffer, object.mesh, MVP, camera.zNear);
+void Renderer::drawScene(FrameBuffer& buffer, const Scene& scene) const {
+    mat4 VP = scene.camera.getPerspectiveMatrix() * scene.camera.getLookAtMatrix();
+    for (const auto& object : scene.objects) {
+        drawMesh(buffer, object.mesh, object.getModelMatrix(), VP, scene.camera.zNear, scene.lighting);
     }
 }

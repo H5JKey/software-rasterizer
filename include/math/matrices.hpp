@@ -1,5 +1,8 @@
 #pragma once
 
+#include <stdexcept>
+#include <utility>
+
 #include "vectors.hpp"
 
 template <std::size_t N>
@@ -51,11 +54,60 @@ struct Matrix {
         return result;
     }
 
-    constexpr Vec<N> transpose() const {
-        Vec<N> result;
+    constexpr Matrix<N> transpose() const {
+        Matrix<N> result;
         for (std::size_t row = 0; row < N; row++) {
             for (std::size_t col = 0; col < N; col++) {
                 result[N * col + row] = data[N * row + col];
+            }
+        }
+        return result;
+    }
+
+    constexpr Matrix<N> inverse() const {
+        Matrix<N> matrix = *this;
+        Matrix<N> result = Matrix<N>::identity();
+        for (std::size_t col = 0; col < N; ++col) {
+            std::size_t pivot = col;
+            auto maxAbs = std::abs(matrix[col, col]);
+            for (std::size_t row = col + 1; row < N; ++row) {
+                auto v = std::abs(matrix[row, col]);
+                if (v > maxAbs) {
+                    maxAbs = v;
+                    pivot = row;
+                }
+            }
+            if (maxAbs < 1e-6) throw std::runtime_error("matrix is singular or near-singular");
+            if (pivot != col) {
+                for (std::size_t j = 0; j < N; ++j) {
+                    std::swap(matrix[col, j], matrix[pivot, j]);
+                    std::swap(result[col, j], result[pivot, j]);
+                }
+            }
+            float diag = matrix[col, col];
+            for (std::size_t j = 0; j < N; ++j) {
+                matrix[col, j] /= diag;
+                result[col, j] /= diag;
+            }
+
+            for (std::size_t row = 0; row < N; ++row) {
+                if (row == col) continue;
+                float factor = matrix[row, col];
+                if (factor == 0.0f) continue;
+                for (std::size_t j = 0; j < N; ++j) {
+                    matrix[row, j] -= factor * matrix[col, j];
+                    result[row, j] -= factor * result[col, j];
+                }
+            }
+        }
+        return result;
+    }
+    template <std::size_t M>
+    constexpr Matrix<M> upperLeft() const {
+        Matrix<M> result;
+        for (std::size_t row = 0; row < M; row++) {
+            for (std::size_t col = 0; col < M; col++) {
+                result[row, col] = data[row * N + col];
             }
         }
         return result;
