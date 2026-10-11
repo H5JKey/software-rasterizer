@@ -11,6 +11,7 @@ class Renderer {
         float depth;
         Color color;
         vec3 normal;
+        float invW;
     };
 
     void drawTriangle(FrameBuffer& buffer, const VertexAttributes& v0, const VertexAttributes& v1,

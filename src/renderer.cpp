@@ -37,14 +37,22 @@ void Renderer::drawTriangle(FrameBuffer& buffer, const VertexAttributes& v0, con
             float depth = v0.depth * u + v1.depth * v + v2.depth * w;
             std::size_t idx = py * buffer.width + px;
             if (depth < buffer.depth[idx]) {
-                Color color = v0.color * u + v1.color * v + v2.color * w;
-                vec3 normal = normalize(v0.normal * u + v1.normal * v + v2.normal * w);
+                float q0 = u * v0.depth * v0.invW;
+                float q1 = u * v1.depth * v1.invW;
+                float q2 = u * v1.depth * v1.invW;
+                float s = 1.0f / (q0 + q1 + q2);
+                q0 *= s;
+                q1 *= s;
+                q2 *= s;
 
+                Color color = v0.color * q0 + v1.color * q1 + v2.color * q2;
+                vec3 normal = normalize(v0.normal * q0 + v1.normal * q1 + v2.normal * q2);
                 color = lighting.ambientColor + color * std::max(0.f, dot(normal, lighting.light.direction));
 
                 buffer.pixels[idx] = color;
                 buffer.depth[idx] = depth;
-                buffer.normals[idx] = Color(normal.x, normal.y, normal.z, 1.0);
+                buffer.normals[idx] =
+                    Color(normal.x * 0.5f + 0.5f, normal.y * 0.5f + 0.5f, normal.z * 0.5f + 0.5f, 1.0f);
             }
         }
     }
@@ -71,6 +79,7 @@ void Renderer::drawMesh(FrameBuffer& buffer, const Mesh& mesh, const mat4& M, co
             attributes[i].position.x = (v.x * invW + 1) * 0.5f * buffer.width;
             attributes[i].position.y = (v.y * invW + 1) * 0.5f * buffer.height;
             attributes[i].depth = v.z * invW;
+            attributes[i].invW = invW;
             attributes[i].color = Color(1, 1, 1, 1);
             vec3 normal = mesh.normals[mesh.indices[3 * tri_idx + i]];
             attributes[i].normal = normalMat * normal;
