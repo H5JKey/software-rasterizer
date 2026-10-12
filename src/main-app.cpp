@@ -11,7 +11,9 @@
 #include "math/transforms.hpp"
 #include "math/vectors.hpp"
 #include "mesh-utils.hpp"
+#include "object.hpp"
 #include "renderer.hpp"
+#include "resources.hpp"
 #include "scene.hpp"
 
 static void glfw_error_callback(int error, const char* description) {
@@ -57,7 +59,10 @@ int main(int argc, char** argv) {
     FrameBuffer buffer(fb_width, fb_height);
     Renderer renderer;
 
-    Mesh m = load_obj("../resources/Bunny.obj");
+    Resources resources;
+
+    resources.loadMesh("../resources/Bunny.obj", "Bunny");
+    resources.loadTexture("../resources/textures/Grass_09-256x256.png", "Grass9");
 
     glfwMakeContextCurrent(window);
     glfwSetKeyCallback(window, key_callback);
@@ -69,7 +74,7 @@ int main(int argc, char** argv) {
     const vec3 target(0.0f, 0.0f, 0.0f);
     const vec3 up(0.0f, 1.0f, 0.0f);
 
-    Camera camera(eye, target, up, 75.0f * pi / 180.0f, static_cast<float>(fb_width) / static_cast<float>(fb_height),
+    Camera camera(eye, target, up, 50.0f * pi / 180.0f, static_cast<float>(fb_width) / static_cast<float>(fb_height),
                   0.01, 100);
 
     Scene::Lighting lighting;
@@ -78,8 +83,8 @@ int main(int argc, char** argv) {
     lighting.light.direction = normalize(vec3(1, 0, 0));
     Scene scene(camera, lighting);
 
-    scene.objects.emplace_back(m);
-    scene.objects.emplace_back(m);
+    scene.objects.emplace_back(resources.meshes["Bunny"], Material{.texture = &resources.textures["Grass9"]});
+    scene.objects.emplace_back(resources.meshes["Bunny"], Material{});
 
     double prev_time = glfwGetTime();
     double report_time = prev_time;

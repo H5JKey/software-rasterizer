@@ -9,16 +9,17 @@ class Renderer {
     struct VertexAttributes {
         vec2 position;
         float depth;
-        Color color;
         vec3 normal;
         float invW;
+        vec2 texcoord;
     };
 
     void drawTriangle(FrameBuffer& buffer, const VertexAttributes& v0, const VertexAttributes& v1,
-                      const VertexAttributes& v2, float area, const Scene::Lighting& lighting) const;
+                      const VertexAttributes& v2, float area, const Scene::Lighting& lighting,
+                      const Material& material) const;
 
     void drawMesh(FrameBuffer& buffer, const Mesh& mesh, const mat4& M, const mat4& VP, float zNear,
-                  const Scene::Lighting& lighting) const;
+                  const Scene::Lighting& lighting, const Material& material) const;
 
    public:
     void drawScene(FrameBuffer& buffer, const Scene& scene) const;

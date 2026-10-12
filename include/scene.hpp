@@ -19,6 +19,6 @@ struct Scene {
 
     Lighting lighting;
 
-    Scene(const Camera& camera, const Lighting& lighting, const std::vector<Object>& objects = {})
-        : objects(objects), camera(camera), lighting(lighting) {}
+    Scene(const Camera& camera, const Lighting& lighting, std::vector<Object> objects = {})
+        : objects(std::move(objects)), camera(camera), lighting(lighting) {}
 };

@@ -8,7 +8,8 @@
 #include "math/vectors.hpp"
 
 void Renderer::drawTriangle(FrameBuffer& buffer, const VertexAttributes& v0, const VertexAttributes& v1,
-                            const VertexAttributes& v2, float edge012, const Scene::Lighting& lighting) const {
+                            const VertexAttributes& v2, float edge012, const Scene::Lighting& lighting,
+                            const Material& material) const {
     float width = static_cast<float>(buffer.width);
     float height = static_cast<float>(buffer.height);
 
@@ -44,9 +45,14 @@ void Renderer::drawTriangle(FrameBuffer& buffer, const VertexAttributes& v0, con
                 q0 *= s;
                 q1 *= s;
                 q2 *= s;
-
-                Color color = v0.color * q0 + v1.color * q1 + v2.color * q2;
+                Color color;
                 vec3 normal = normalize(v0.normal * q0 + v1.normal * q1 + v2.normal * q2);
+                vec2 uv = v0.texcoord * q0 + v1.texcoord * q1 + v2.texcoord * q2;
+                if (material.texture) {
+                    color = material.texture->sample(uv);
+                } else {
+                    color = material.baseColor;
+                }
                 color = lighting.ambientColor + color * std::max(0.f, dot(normal, lighting.light.direction));
 
                 buffer.pixels[idx] = color;
@@ -59,7 +65,7 @@ void Renderer::drawTriangle(FrameBuffer& buffer, const VertexAttributes& v0, con
 }
 
 void Renderer::drawMesh(FrameBuffer& buffer, const Mesh& mesh, const mat4& M, const mat4& VP, float zNear,
-                        const Scene::Lighting& lighting) const {
+                        const Scene::Lighting& lighting, const Material& material) const {
     std::vector<vec4> clipCoords;
     clipCoords.reserve(mesh.vertices.size());
 
@@ -80,19 +86,19 @@ void Renderer::drawMesh(FrameBuffer& buffer, const Mesh& mesh, const mat4& M, co
             attributes[i].position.y = (v.y * invW + 1) * 0.5f * buffer.height;
             attributes[i].depth = v.z * invW;
             attributes[i].invW = invW;
-            attributes[i].color = Color(1, 1, 1, 1);
+            attributes[i].texcoord = mesh.texcoords[mesh.indices[3 * tri_idx + i]];
             vec3 normal = mesh.normals[mesh.indices[3 * tri_idx + i]];
             attributes[i].normal = normalMat * normal;
         }
         float area = edgeFunction(attributes[0].position, attributes[1].position, attributes[2].position);
         if (area < 1e-6) continue; /* degenerate triangle or not visible */
-        drawTriangle(buffer, attributes[0], attributes[1], attributes[2], area, lighting);
+        drawTriangle(buffer, attributes[0], attributes[1], attributes[2], area, lighting, material);
     }
 }
 
 void Renderer::drawScene(FrameBuffer& buffer, const Scene& scene) const {
     mat4 VP = scene.camera.getPerspectiveMatrix() * scene.camera.getLookAtMatrix();
     for (const auto& object : scene.objects) {
-        drawMesh(buffer, object.mesh, object.getModelMatrix(), VP, scene.camera.zNear, scene.lighting);
+        drawMesh(buffer, object.mesh, object.getModelMatrix(), VP, scene.camera.zNear, scene.lighting, object.material);
     }
 }
