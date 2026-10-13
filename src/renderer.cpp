@@ -39,9 +39,9 @@ void Renderer::drawTriangle(FrameBuffer& buffer, const VertexAttributes& v0, con
             float depth = v0.depth * u + v1.depth * v + v2.depth * w;
             std::size_t idx = py * buffer.width + px;
             if (depth < buffer.depth[idx]) {
-                float q0 = u * v0.depth * v0.invW;
-                float q1 = u * v1.depth * v1.invW;
-                float q2 = u * v2.depth * v2.invW;
+                float q0 = u * v0.invW;
+                float q1 = v * v1.invW;
+                float q2 = w * v2.invW;
                 float s = 1.0f / (q0 + q1 + q2);
                 q0 *= s;
                 q1 *= s;
