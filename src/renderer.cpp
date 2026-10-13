@@ -54,7 +54,11 @@ void Renderer::drawTriangle(FrameBuffer& buffer, const VertexAttributes& v0, con
                 } else {
                     color = material.baseColor;
                 }
-                color = lighting.ambientColor + color * std::max(0.f, dot(normal, lighting.light.direction));
+                Color factor = (lighting.ambientColor +
+                                lighting.light.color * std::max(0.f, dot(normal, lighting.light.direction)));
+                color.r = color.r * factor.r;
+                color.g = color.g * factor.g;
+                color.b = color.b * factor.b;
 
                 buffer.pixels[idx] = color;
                 buffer.depth[idx] = depth;

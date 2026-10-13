@@ -10,8 +10,6 @@
 #include "frame-buffer.hpp"
 #include "math/transforms.hpp"
 #include "math/vectors.hpp"
-#include "mesh-utils.hpp"
-#include "object.hpp"
 #include "renderer.hpp"
 #include "resources.hpp"
 #include "scene.hpp"
@@ -63,7 +61,8 @@ int main(int argc, char** argv) {
 
     Resources resources;
 
-    resources.loadTexture("../resources/textures/porcelain.jpg", "BunnyTex");
+    resources.loadTexture("../resources/textures/porcelain.jpg", "Porcelain");
+    resources.loadTexture("../resources/textures/Grass_13-256x256.png", "Grass");
     resources.loadMesh("../resources/Bunny.obj", "Bunny");
 
     glfwMakeContextCurrent(window);
@@ -80,16 +79,16 @@ int main(int argc, char** argv) {
                   0.01, 100);
 
     Scene::Lighting lighting;
-    lighting.ambientColor = Color(0.1, 0.1, 0.1, 1);
+    lighting.ambientColor = Color(0.15, 0.15, 0.15, 1);
     lighting.light.color = Color(1, 1, 1, 1);
     lighting.light.direction = normalize(vec3(1, 0, 0));
     Scene scene(camera, lighting);
 
-    resources.materials["base"] = Material{};
-    resources.materials["textured"] = Material{.texture = &resources.textures["BunnyTex"]};
+    resources.materials["Grass"] = Material{.texture = &resources.textures["Grass"]};
+    resources.materials["Porcelain"] = Material{.texture = &resources.textures["Porcelain"]};
 
-    scene.objects.emplace_back(resources.meshes["Bunny"], resources.materials["base"]);
-    scene.objects.emplace_back(resources.meshes["Bunny"], resources.materials["textured"]);
+    scene.objects.emplace_back(resources.meshes["Bunny"], resources.materials["Porcelain"]);
+    scene.objects.emplace_back(resources.meshes["Bunny"], resources.materials["Grass"]);
 
     double prev_time = glfwGetTime();
     double report_time = prev_time;
