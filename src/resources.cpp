@@ -16,7 +16,7 @@ const Texture& Resources::loadTexture(const std::filesystem::path& filename, std
     std::vector<Color> pixels(width * height);
     for (int row = 0; row < height; row++) {
         for (int col = 0; col < width; col++) {
-            std::size_t idx = row * height + col;
+            std::size_t idx = row * width + col;
             pixels[idx] = Color(rgb_f32[3 * idx + 0], rgb_f32[3 * idx + 1], rgb_f32[3 * idx + 2], 1.0f);
         }
     }

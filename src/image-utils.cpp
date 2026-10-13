@@ -62,33 +62,39 @@ void save_image_f32_png_rgb(const std::vector<uint8_t>& data, const std::filesys
         throw std::runtime_error(std::format("Failed to save image {}", filename.string()));
     }
 }
-
 std::vector<float> load_image_f32_rgb(const std::filesystem::path& filename, int& w, int& h, float gamma) {
-    int channels = 0;
-    stbi_uc* raw_data = stbi_load(filename.c_str(), &w, &h, &channels, 3);
-    if (channels != 3 || raw_data == NULL || w <= 0 || h <= 0) {
-        if (raw_data) STBI_FREE(raw_data);
-        throw std::runtime_error(std::format("Failed to load mage {}", filename.string()));
+    constexpr int kChannels = 3;
+
+    int file_channels = 0;
+    stbi_uc* raw_data = stbi_load(filename.string().c_str(), &w, &h, &file_channels, kChannels);
+
+    if (raw_data == nullptr) {
+        throw std::runtime_error(
+            std::format("Failed to load image '{}': {}", filename.string(), stbi_failure_reason()));
     }
 
-    // swap y
-    for (int i = 0; i < h / 2; i++) {
-        for (int j = 0; j < w; j++) {
-            int i1 = i * w + j;
-            int i2 = (h - 1 - i) * w + j;
-            for (int ch = 0; ch < channels; ch++) {
-                unsigned char tmp = raw_data[channels * i1 + ch];
-                raw_data[channels * i1 + ch] = raw_data[channels * i2 + ch];
-                raw_data[channels * i2 + ch] = tmp;
-            }
+    // RAII guard so raw_data is freed on any exception path below.
+    struct StbiDeleter {
+        void operator()(stbi_uc* p) const noexcept { STBI_FREE(p); }
+    };
+    std::unique_ptr<stbi_uc, StbiDeleter> raw_guard(raw_data);
+
+    if (w <= 0 || h <= 0) {
+        throw std::runtime_error(std::format("Invalid image dimensions for '{}': {}x{}", filename.string(), w, h));
+    }
+
+    // stb_image loads top-down; flip vertically into the output.
+    const std::size_t row_bytes = static_cast<std::size_t>(w) * kChannels;
+    std::vector<float> data_f32(static_cast<std::size_t>(w) * h * kChannels);
+    const float inv255 = 1.0f / 255.0f;
+
+    for (int y = 0; y < h; ++y) {
+        const stbi_uc* src = raw_data + static_cast<std::size_t>(h - 1 - y) * row_bytes;
+        float* dst = data_f32.data() + static_cast<std::size_t>(y) * row_bytes;
+        for (int x = 0; x < w * kChannels; ++x) {
+            dst[x] = std::pow(src[x] * inv255, gamma);
         }
     }
-
-    int sz = 3 * w * h;
-    std::vector<float> data_f32(sz);
-    for (int i = 0; i < sz; i++) data_f32[i] = powf(raw_data[i] / 255.0f, gamma);
-
-    STBI_FREE(raw_data);
 
     return data_f32;
 }

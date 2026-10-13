@@ -20,7 +20,7 @@ static void glfw_error_callback(int error, const char* description) {
     fprintf(stderr, "GLFW error %d: %s\n", error, description);
 }
 
-enum class VisualizationMode { Final = 1, DepthBuffer = 2, Normals = 3 };
+enum class VisualizationMode { Final = 1, DepthBuffer = 2, Normals = 3, Texcoords = 4 };
 VisualizationMode visualizationMode = VisualizationMode::Final;
 
 static void key_callback(GLFWwindow* window, int key, int /*scancode*/, int action, int /*mods*/
@@ -34,6 +34,8 @@ static void key_callback(GLFWwindow* window, int key, int /*scancode*/, int acti
     if (key == GLFW_KEY_2 && action == GLFW_PRESS) visualizationMode = VisualizationMode::DepthBuffer;
 
     if (key == GLFW_KEY_3 && action == GLFW_PRESS) visualizationMode = VisualizationMode::Normals;
+
+    if (key == GLFW_KEY_4 && action == GLFW_PRESS) visualizationMode = VisualizationMode::Texcoords;
 }
 
 int main(int argc, char** argv) {
@@ -61,8 +63,8 @@ int main(int argc, char** argv) {
 
     Resources resources;
 
+    resources.loadTexture("../resources/textures/porcelain.jpg", "BunnyTex");
     resources.loadMesh("../resources/Bunny.obj", "Bunny");
-    resources.loadTexture("../resources/textures/Grass_09-256x256.png", "Grass9");
 
     glfwMakeContextCurrent(window);
     glfwSetKeyCallback(window, key_callback);
@@ -83,8 +85,11 @@ int main(int argc, char** argv) {
     lighting.light.direction = normalize(vec3(1, 0, 0));
     Scene scene(camera, lighting);
 
-    scene.objects.emplace_back(resources.meshes["Bunny"], Material{.texture = &resources.textures["Grass9"]});
-    scene.objects.emplace_back(resources.meshes["Bunny"], Material{});
+    resources.materials["base"] = Material{};
+    resources.materials["textured"] = Material{.texture = &resources.textures["BunnyTex"]};
+
+    scene.objects.emplace_back(resources.meshes["Bunny"], resources.materials["base"]);
+    scene.objects.emplace_back(resources.meshes["Bunny"], resources.materials["textured"]);
 
     double prev_time = glfwGetTime();
     double report_time = prev_time;
@@ -97,7 +102,7 @@ int main(int argc, char** argv) {
         const double now = glfwGetTime();
         prev_time = now;
 
-        const float angle = static_cast<float>(now) * 0.8f;
+        const float angle = static_cast<float>(now) * 0.5f;
 
         scene.objects[0].updateTransform(rotationY(angle) * translation(vec3(-1, 0, 0)) * scale(vec3(0.5, 0.5, 0.5)));
         scene.objects[1].updateTransform(rotationY(-2 * angle));
@@ -134,7 +139,13 @@ int main(int argc, char** argv) {
             glDrawPixels(fb_width, fb_height, GL_RGBA, GL_FLOAT, output.data());
         } else if (visualizationMode == VisualizationMode::Normals)
             glDrawPixels(fb_width, fb_height, GL_RGBA, GL_FLOAT, buffer.normals.data());
+        else if (visualizationMode == VisualizationMode::Texcoords) {
+            std::vector<Color> output(buffer.depth.size());
 
+            std::transform(buffer.texcoords.begin(), buffer.texcoords.end(), output.begin(),
+                           [](vec2 uv) { return Color(uv.u, uv.v, 0.0f, 1.0f); });
+            glDrawPixels(fb_width, fb_height, GL_RGBA, GL_FLOAT, output.data());
+        }
         glfwSwapBuffers(window);
         glfwPollEvents();
 

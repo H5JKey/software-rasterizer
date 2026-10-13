@@ -23,6 +23,9 @@ struct VecStorage<2> {
         struct {
             float x, y;
         };
+        struct {
+            float u, v;
+        };
     };
     constexpr VecStorage(float x, float y) : x(x), y(y) {}
     constexpr VecStorage() : x(0), y(0) {}

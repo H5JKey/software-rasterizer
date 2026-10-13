@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <cstddef>
+#include <stdexcept>
 #include <vector>
 
 #include "frame-buffer.hpp"
@@ -40,7 +41,7 @@ void Renderer::drawTriangle(FrameBuffer& buffer, const VertexAttributes& v0, con
             if (depth < buffer.depth[idx]) {
                 float q0 = u * v0.depth * v0.invW;
                 float q1 = u * v1.depth * v1.invW;
-                float q2 = u * v1.depth * v1.invW;
+                float q2 = u * v2.depth * v2.invW;
                 float s = 1.0f / (q0 + q1 + q2);
                 q0 *= s;
                 q1 *= s;
@@ -59,6 +60,7 @@ void Renderer::drawTriangle(FrameBuffer& buffer, const VertexAttributes& v0, con
                 buffer.depth[idx] = depth;
                 buffer.normals[idx] =
                     Color(normal.x * 0.5f + 0.5f, normal.y * 0.5f + 0.5f, normal.z * 0.5f + 0.5f, 1.0f);
+                buffer.texcoords[idx] = uv;
             }
         }
     }
@@ -99,6 +101,9 @@ void Renderer::drawMesh(FrameBuffer& buffer, const Mesh& mesh, const mat4& M, co
 void Renderer::drawScene(FrameBuffer& buffer, const Scene& scene) const {
     mat4 VP = scene.camera.getPerspectiveMatrix() * scene.camera.getLookAtMatrix();
     for (const auto& object : scene.objects) {
+        if (object.material.texture && object.mesh.texcoords.size() != object.mesh.vertices.size()) {
+            throw std::runtime_error("Cannot apply texture: mesh has no texture coordinates");
+        }
         drawMesh(buffer, object.mesh, object.getModelMatrix(), VP, scene.camera.zNear, scene.lighting, object.material);
     }
 }
