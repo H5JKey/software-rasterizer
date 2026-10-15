@@ -87,8 +87,8 @@ int main(int argc, char** argv) {
     resources.materials["Grass"] = Material{.texture = &resources.textures["Grass"]};
     resources.materials["Porcelain"] = Material{.texture = &resources.textures["Porcelain"]};
 
-    scene.objects.emplace_back(resources.meshes["Bunny"], resources.materials["Porcelain"]);
     scene.objects.emplace_back(resources.meshes["Bunny"], resources.materials["Grass"]);
+    scene.objects.emplace_back(resources.meshes["Bunny"], resources.materials["Porcelain"]);
 
     double prev_time = glfwGetTime();
     double report_time = prev_time;
@@ -142,7 +142,7 @@ int main(int argc, char** argv) {
             std::vector<Color> output(buffer.depth.size());
 
             std::transform(buffer.texcoords.begin(), buffer.texcoords.end(), output.begin(),
-                           [](vec2 uv) { return Color(uv.u, uv.v, 0.0f, 1.0f); });
+                           [](vec2 uv) { return Color(uv.x, uv.y, 0.0f, 1.0f); });
             glDrawPixels(fb_width, fb_height, GL_RGBA, GL_FLOAT, output.data());
         }
         glfwSwapBuffers(window);
