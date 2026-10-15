@@ -1,5 +1,3 @@
-#include "mesh-utils.hpp"
-
 #include <stdexcept>
 
 #define TINYOBJ_LOADER_C_IMPLEMENTATION
@@ -18,8 +16,6 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
-
-#include <limits>
 
 #include "math/transforms.hpp"
 #include "mesh.hpp"
@@ -96,7 +92,55 @@ static uint32_t hash_vertex(int v_idx, int vt_idx, int vn_idx) {
 
 static int valid_index(int idx, unsigned int count) { return idx >= 0 && (unsigned int)idx < count; }
 
-Mesh load_obj(const std::filesystem::path& filename) {
+void Mesh::normalize() {
+    struct AABB aabb = AABB();
+    const vec3 size = aabb.size();
+    const float maxSize = std::max(size.x, std::max(size.y, size.z));
+    if (maxSize <= 0.0) return;
+    float factor = 1.0f / maxSize;
+    mat4 transform = scale(vec3(factor, factor, factor)) * translation(-aabb.center());
+    for (auto& v : vertices) {
+        vec4 v4 = vec4(v.x, v.y, v.z, 1.0);
+        v4 = transform * v4;
+        v = vec3(v4.x, v4.y, v4.z);
+    }
+}
+
+AABB Mesh::buildAABB() const {
+    AABB aabb;
+    aabb.min = vec3(std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity(),
+                    std::numeric_limits<float>::infinity());
+    aabb.max = vec3(-std::numeric_limits<float>::infinity(), -std::numeric_limits<float>::infinity(),
+                    -std::numeric_limits<float>::infinity());
+    for (const auto& v : vertices) {
+        aabb.min.x = std::min(aabb.min.x, v.x);
+        aabb.min.y = std::min(aabb.min.y, v.y);
+        aabb.min.z = std::min(aabb.min.z, v.z);
+
+        aabb.max.x = std::max(aabb.max.x, v.x);
+        aabb.max.y = std::max(aabb.max.y, v.y);
+        aabb.max.z = std::max(aabb.max.z, v.z);
+    }
+    return aabb;
+}
+
+void Mesh::buildNormals() {
+    normals.assign(vertices.size(), vec3(0, 0, 0));
+    for (std::size_t tri_idx = 0; tri_idx < indices.size() / 3; tri_idx++) {
+        vec3 v0 = vertices[indices[3 * tri_idx]];
+        vec3 v1 = vertices[indices[3 * tri_idx + 1]];
+        vec3 v2 = vertices[indices[3 * tri_idx + 2]];
+
+        vec3 normal = ::normalize(cross(v1 - v0, v2 - v0));
+
+        normals[indices[3 * tri_idx]] = normals[indices[3 * tri_idx]] + normal;
+        normals[indices[3 * tri_idx + 1]] = normals[indices[3 * tri_idx + 1]] + normal;
+        normals[indices[3 * tri_idx + 2]] = normals[indices[3 * tri_idx + 2]] + normal;
+    }
+    for (auto& n : normals) n = ::normalize(n);
+}
+
+Mesh Mesh::loadFromFile(const std::filesystem::path& filename) {
     Mesh m;
     m.vertices.clear();
     m.normals.clear();
@@ -174,50 +218,8 @@ Mesh load_obj(const std::filesystem::path& filename) {
     tinyobj_attrib_free(&attrib);
     tinyobj_shapes_free(shapes, num_shapes);
     tinyobj_materials_free(materials, num_materials);
-    m.normalizationMatrix = calculateNormalizationMatrix(m);
-    if (m.normals.size() != m.vertices.size()) calculateNormals(m);
+
+    if (m.vertices.size() != m.normals.size()) m.buildNormals();
+    m.normalize();
     return m;
-}
-
-mat4 calculateNormalizationMatrix(const Mesh& mesh) {
-    AABB aabb = calculateABB(mesh);
-    const vec3 size = aabb.size();
-    const float maxSize = std::max(size.x, std::max(size.y, size.z));
-    if (maxSize <= 0.0) return mat4::identity();
-    float factor = 1.0f / maxSize;
-    return scale(vec3(factor, factor, factor)) * translation(-aabb.center());
-}
-
-AABB calculateABB(const Mesh& mesh) {
-    AABB aabb;
-    aabb.min = vec3(std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity(),
-                    std::numeric_limits<float>::infinity());
-    aabb.max = vec3(-std::numeric_limits<float>::infinity(), -std::numeric_limits<float>::infinity(),
-                    -std::numeric_limits<float>::infinity());
-    for (const auto& v : mesh.vertices) {
-        aabb.min.x = std::min(aabb.min.x, v.x);
-        aabb.min.y = std::min(aabb.min.y, v.y);
-        aabb.min.z = std::min(aabb.min.z, v.z);
-
-        aabb.max.x = std::max(aabb.max.x, v.x);
-        aabb.max.y = std::max(aabb.max.y, v.y);
-        aabb.max.z = std::max(aabb.max.z, v.z);
-    }
-    return aabb;
-}
-
-void calculateNormals(Mesh& mesh) {
-    mesh.normals.assign(mesh.vertices.size(), vec3(0, 0, 0));
-    for (std::size_t tri_idx = 0; tri_idx < mesh.indices.size() / 3; tri_idx++) {
-        vec3 v0 = mesh.vertices[mesh.indices[3 * tri_idx]];
-        vec3 v1 = mesh.vertices[mesh.indices[3 * tri_idx + 1]];
-        vec3 v2 = mesh.vertices[mesh.indices[3 * tri_idx + 2]];
-
-        vec3 normal = normalize(cross(v1 - v0, v2 - v0));
-
-        mesh.normals[mesh.indices[3 * tri_idx]] = mesh.normals[mesh.indices[3 * tri_idx]] + normal;
-        mesh.normals[mesh.indices[3 * tri_idx + 1]] = mesh.normals[mesh.indices[3 * tri_idx + 1]] + normal;
-        mesh.normals[mesh.indices[3 * tri_idx + 2]] = mesh.normals[mesh.indices[3 * tri_idx + 2]] + normal;
-    }
-    for (auto& n : mesh.normals) n = normalize(n);
 }

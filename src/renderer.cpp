@@ -2,16 +2,15 @@
 
 #include <cmath>
 #include <cstddef>
-#include <stdexcept>
 #include <vector>
 
 #include "frame-buffer.hpp"
 #include "math/vectors.hpp"
 #include "shaders.hpp"
 
-void Renderer::drawTriangle(FrameBuffer& buffer, const VertexAttributes& v0, const VertexAttributes& v1,
-                            const VertexAttributes& v2, float edge012, const Scene::Lighting& lighting,
-                            const Material& material) const {
+void Renderer::drawTriangle(FrameBuffer& buffer, const ScreenVertexAttributes& v0, const ScreenVertexAttributes& v1,
+                            const ScreenVertexAttributes& v2, float edge012, const Scene::Lighting& lighting,
+                            const Material& material, bool hasTexcoords) const {
     float width = static_cast<float>(buffer.width);
     float height = static_cast<float>(buffer.height);
 
@@ -50,57 +49,71 @@ void Renderer::drawTriangle(FrameBuffer& buffer, const VertexAttributes& v0, con
                 q1 *= s;
                 q2 *= s;
                 vec3 normal = normalize(v0.normal * q0 + v1.normal * q1 + v2.normal * q2);
-                vec2 uv = v0.texcoord * q0 + v1.texcoord * q1 + v2.texcoord * q2;
-
-                buffer.pixels[idx] =
-                    fragmentShader(
-                        FragmentShaderInput{.normal = normal, .material = material, .uv = uv, .depth = depth}, uniforms)
-                        .color;
+                vec2 uv;
+                if (hasTexcoords) uv = v0.texcoord * q0 + v1.texcoord * q1 + v2.texcoord * q2;
+                buffer.pixels[idx] = fragmentShader(FragmentShaderInput{.normal = normal,
+                                                                        .material = material,
+                                                                        .uv = uv,
+                                                                        .depth = depth,
+                                                                        .hasTexcoords = hasTexcoords},
+                                                    uniforms)
+                                         .color;
             }
         }
     }
 }
 
-void Renderer::drawMesh(FrameBuffer& buffer, const Mesh& mesh, const mat4& M, const mat4& VP, float zNear,
-                        const Scene::Lighting& lighting, const Material& material) const {
-    std::vector<vec4> clipCoords;
-    clipCoords.reserve(mesh.vertices.size());
+void Renderer::drawObject(FrameBuffer& buffer, const Object& object, const mat4& VP, const Scene::Lighting& lighting,
+                          float zNear) const {
+    const Mesh& mesh = object.mesh;
+    bool hasTexcoords = mesh.texcoords.size() == mesh.vertices.size();
+    static std::vector<vec4> clipCoords;
+    clipCoords.resize(object.mesh.vertices.size());
 
-    VertexShaderUniforms uniforms{.MVP = VP * M};
-    mat3 normalMat = M.upperLeft<3>().inverse().transpose();
-
-    for (const auto& v : mesh.vertices) {
-        clipCoords.emplace_back(vertexShader(VertexShaderInput{.worldPosition = v}, uniforms).clipCoords);
-    }
-
-    for (size_t tri_idx = 0; tri_idx < mesh.indices.size() / 3; tri_idx++) {
-        if (clipCoords[mesh.indices[3 * tri_idx]].w < zNear || clipCoords[mesh.indices[3 * tri_idx + 1]].w < zNear ||
-            clipCoords[mesh.indices[3 * tri_idx + 2]].w < zNear)
-            continue;
-        VertexAttributes attributes[3];
-        for (int i = 0; i < 3; i++) {
-            const auto& v = clipCoords[mesh.indices[3 * tri_idx + i]];
-            float invW = 1.0f / v.w;
-            attributes[i].position.x = (v.x * invW + 1) * 0.5f * buffer.width;
-            attributes[i].position.y = (v.y * invW + 1) * 0.5f * buffer.height;
-            attributes[i].depth = v.z * invW;
-            attributes[i].invW = invW;
-            attributes[i].texcoord = mesh.texcoords[mesh.indices[3 * tri_idx + i]];
-            vec3 normal = mesh.normals[mesh.indices[3 * tri_idx + i]];
-            attributes[i].normal = normalMat * normal;
+    static std::vector<vec3> transformedNormals;
+    transformedNormals.resize(object.mesh.vertices.size());
+    for (std::size_t instance_id = 0; instance_id < object.modelMatrices.size(); instance_id++) {
+        clipCoords.clear();
+        transformedNormals.clear();
+        VertexShaderUniforms uniforms{
+            .VP = VP, .M = object.modelMatrices, .inverseTransposeM = object.inverseTransposeModelMatrices};
+#pragma omp parallel for
+        for (size_t i = 0; i < mesh.vertices.size(); i++) {
+            VertexShaderOutput output = vertexShader(
+                VertexShaderInput{.position = mesh.vertices[i], .normal = mesh.normals[i], .instance_id = instance_id},
+                uniforms);
+            clipCoords[i] = std::move(output.position);
+            transformedNormals[i] = std::move(output.normal);
         }
-        float area = edgeFunction(attributes[0].position, attributes[1].position, attributes[2].position);
-        if (area < 1e-6) continue; /* degenerate triangle or not visible */
-        drawTriangle(buffer, attributes[0], attributes[1], attributes[2], area, lighting, material);
+#pragma omp parallel for
+        for (size_t tri_idx = 0; tri_idx < mesh.indices.size() / 3; tri_idx++) {
+            if (clipCoords[mesh.indices[3 * tri_idx]].w < zNear ||
+                clipCoords[mesh.indices[3 * tri_idx + 1]].w < zNear ||
+                clipCoords[mesh.indices[3 * tri_idx + 2]].w < zNear)
+                continue;
+            ScreenVertexAttributes attributes[3];
+            for (int i = 0; i < 3; i++) {
+                const auto& v = clipCoords[mesh.indices[3 * tri_idx + i]];
+                float invW = 1.0f / v.w;
+                attributes[i].position.x = (v.x * invW + 1) * 0.5f * buffer.width;
+                attributes[i].position.y = (v.y * invW + 1) * 0.5f * buffer.height;
+                attributes[i].depth = v.z * invW;
+                attributes[i].invW = invW;
+                if (hasTexcoords) attributes[i].texcoord = mesh.texcoords[mesh.indices[3 * tri_idx + i]];
+                attributes[i].normal = transformedNormals[mesh.indices[3 * tri_idx + i]];
+            }
+            float area = edgeFunction(attributes[0].position, attributes[1].position, attributes[2].position);
+            if (area < 1e-6) continue; /* degenerate triangle or not visible */
+
+            drawTriangle(buffer, attributes[0], attributes[1], attributes[2], area, lighting, object.material,
+                         hasTexcoords);
+        }
     }
 }
 
 void Renderer::drawScene(FrameBuffer& buffer, const Scene& scene) const {
     mat4 VP = scene.camera.getPerspectiveMatrix() * scene.camera.getLookAtMatrix();
     for (const auto& object : scene.objects) {
-        if (object.material.texture && object.mesh.texcoords.size() != object.mesh.vertices.size()) {
-            throw std::runtime_error("Cannot apply texture: mesh has no texture coordinates");
-        }
-        drawMesh(buffer, object.mesh, object.getModelMatrix(), VP, scene.camera.zNear, scene.lighting, object.material);
+        drawObject(buffer, object, VP, scene.lighting, scene.camera.zNear);
     }
 }

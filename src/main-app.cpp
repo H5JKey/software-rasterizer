@@ -2,17 +2,14 @@
 #include <GLFW/glfw3.h>
 
 #include <algorithm>
-#include <cmath>
 #include <cstdio>
 #include <limits>
-#include <print>
 
 #include "camera.hpp"
 #include "frame-buffer.hpp"
 #include "math/transforms.hpp"
 #include "math/vectors.hpp"
 #include "renderer.hpp"
-#include "resources.hpp"
 #include "scene.hpp"
 #include "shaders.hpp"
 
@@ -58,18 +55,21 @@ int main(int argc, char** argv) {
     int fb_height = 0;
     glfwGetFramebufferSize(window, &fb_width, &fb_height);
 
+    FrameBuffer buffer(fb_width, fb_height);
+
     VertexShader vertexShader = [](const VertexShaderInput& input,
                                    const VertexShaderUniforms& uniforms) -> VertexShaderOutput {
         VertexShaderOutput output;
-        output.clipCoords =
-            uniforms.MVP * vec4(input.worldPosition.x, input.worldPosition.y, input.worldPosition.z, 1.0);
+        output.position = uniforms.VP * uniforms.M[input.instance_id] *
+                          vec4(input.position.x, input.position.y, input.position.z, 1.0);
+        output.normal = uniforms.inverseTransposeM[input.instance_id] * input.normal;
         return output;
     };
 
     FragmentShader fragmentShader = [](const FragmentShaderInput& input,
                                        const FragmentShaderUniforms& uniforms) -> FragmentShaderOutput {
         FragmentShaderOutput output;
-        if (input.material.texture) {
+        if (input.hasTexcoords && input.material.texture) {
             output.color = input.material.texture->sample(input.uv);
         } else {
             output.color = input.material.baseColor;
@@ -93,7 +93,10 @@ int main(int argc, char** argv) {
     FragmentShader depthFragmentShader = [](const FragmentShaderInput& input,
                                             const FragmentShaderUniforms& uniforms) -> FragmentShaderOutput {
         FragmentShaderOutput output;
-        float gray = input.depth;
+        constexpr float minDepth = 0.99;
+        constexpr float maxDepth = 0.991;
+        constexpr float denum = 1 / (maxDepth - minDepth);
+        float gray = (input.depth - minDepth) * denum;
         output.color = Color(gray, gray, gray, 1.0f);
         return output;
     };
@@ -101,18 +104,18 @@ int main(int argc, char** argv) {
     FragmentShader texcoordsFragmentShader = [](const FragmentShaderInput& input,
                                                 const FragmentShaderUniforms& uniforms) -> FragmentShaderOutput {
         FragmentShaderOutput output;
-        output.color = Color(input.uv.x, input.uv.y, 0.0f, 1.0f);
+        if (input.hasTexcoords)
+            output.color = Color(input.uv.x, input.uv.y, 0.0f, 1.0f);
+        else
+            output.color = Color(0, 0, 0, 1);
         return output;
     };
 
-    FrameBuffer buffer(fb_width, fb_height);
     Renderer renderer(vertexShader, fragmentShader);
 
-    Resources resources;
-
-    resources.loadTexture("../resources/textures/porcelain.jpg", "Porcelain");
-    resources.loadTexture("../resources/textures/Grass_13-256x256.png", "Grass");
-    resources.loadMesh("../resources/Bunny.obj", "Bunny");
+    Mesh mesh = Mesh::loadFromFile("../resources/Bunny.obj");
+    Texture texture = Texture::loadFromFile("../resources/textures/porcelain.jpg");
+    Material material{.baseColor = Color(1, 1, 1, 1), .texture = &texture};
 
     glfwMakeContextCurrent(window);
     glfwSetKeyCallback(window, key_callback);
@@ -124,7 +127,7 @@ int main(int argc, char** argv) {
     const vec3 target(0.0f, 0.0f, 0.0f);
     const vec3 up(0.0f, 1.0f, 0.0f);
 
-    Camera camera(eye, target, up, 50.0f * pi / 180.0f, static_cast<float>(fb_width) / static_cast<float>(fb_height),
+    Camera camera(eye, target, up, 90.0f * pi / 180.0f, static_cast<float>(fb_width) / static_cast<float>(fb_height),
                   0.01, 100);
 
     Scene::Lighting lighting;
@@ -133,11 +136,15 @@ int main(int argc, char** argv) {
     lighting.light.direction = normalize(vec3(1, 0, 0));
     Scene scene(camera, lighting);
 
-    resources.materials["Grass"] = Material{.texture = &resources.textures["Grass"]};
-    resources.materials["Porcelain"] = Material{.texture = &resources.textures["Porcelain"]};
+    scene.objects.emplace_back(mesh, material);
+    scene.objects[0].addInstance();
 
-    scene.objects.emplace_back(resources.meshes["Bunny"], resources.materials["Grass"]);
-    scene.objects.emplace_back(resources.meshes["Bunny"], resources.materials["Porcelain"]);
+    scene.objects.emplace_back(mesh, Material{.baseColor = Color(1, 1, 1, 1)});
+    for (int x = -1; x <= 1; x++) {
+        for (int y = -1; y <= 1; y++) {
+            scene.objects[1].addInstance(translation(vec3(x, y, 2.5)) * scale(vec3(0.2, 0.2, 0.2)));
+        }
+    }
 
     double prev_time = glfwGetTime();
     double report_time = prev_time;
@@ -161,8 +168,7 @@ int main(int argc, char** argv) {
 
         const float angle = static_cast<float>(now) * 0.5f;
 
-        scene.objects[0].updateTransform(rotationY(angle) * translation(vec3(-1, 0, 0)) * scale(vec3(0.5, 0.5, 0.5)));
-        scene.objects[1].updateTransform(rotationY(-2 * angle));
+        scene.objects[0].updateTransform(0, rotationY(angle));
 
         double start = glfwGetTime();
         buffer.clear();

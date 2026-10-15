@@ -2,12 +2,11 @@
 #include "frame-buffer.hpp"
 #include "math/matrices.hpp"
 #include "math/vectors.hpp"
-#include "mesh.hpp"
 #include "scene.hpp"
 #include "shaders.hpp"
 
 class Renderer {
-    struct VertexAttributes {
+    struct ScreenVertexAttributes {
         vec2 position;
         float depth;
         vec3 normal;
@@ -18,12 +17,12 @@ class Renderer {
     VertexShader vertexShader;
     FragmentShader fragmentShader;
 
-    void drawTriangle(FrameBuffer& buffer, const VertexAttributes& v0, const VertexAttributes& v1,
-                      const VertexAttributes& v2, float area, const Scene::Lighting& lighting,
-                      const Material& material) const;
+    void drawTriangle(FrameBuffer& buffer, const ScreenVertexAttributes& v0, const ScreenVertexAttributes& v1,
+                      const ScreenVertexAttributes& v2, float area, const Scene::Lighting& lighting,
+                      const Material& material, bool hasTexcoords = true) const;
 
-    void drawMesh(FrameBuffer& buffer, const Mesh& mesh, const mat4& M, const mat4& VP, float zNear,
-                  const Scene::Lighting& lighting, const Material& material) const;
+    void drawObject(FrameBuffer& buffer, const Object& object, const mat4& VP, const Scene::Lighting& lighting,
+                    float zNear) const;
 
    public:
     Renderer(VertexShader vertexShader, FragmentShader fragmentShader)

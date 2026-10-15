@@ -26,10 +26,9 @@ endif()
 
 add_library(raster
     src/image-utils.cpp
-    src/mesh-utils.cpp
     src/renderer.cpp
-    src/resources.cpp
     src/texture.cpp
+    src/mesh.cpp
 )
 
 target_include_directories(raster PUBLIC

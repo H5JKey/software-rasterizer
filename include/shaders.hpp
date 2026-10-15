@@ -9,15 +9,20 @@
 /* Vertex shaders*/
 
 struct VertexShaderUniforms {
-    const mat4& MVP;
+    const mat4& VP;
+    const std::vector<mat4>& M;
+    const std::vector<mat3> inverseTransposeM;
 };
 
 struct VertexShaderInput {
-    vec3 worldPosition;
+    vec3 position;
+    vec3 normal;
+    std::size_t instance_id;
 };
 
 struct VertexShaderOutput {
-    vec4 clipCoords;
+    vec4 position;
+    vec3 normal;
 };
 
 using VertexShader = std::function<VertexShaderOutput(const VertexShaderInput&, const VertexShaderUniforms&)>;
@@ -33,6 +38,7 @@ struct FragmentShaderInput {
     Material material;
     vec2 uv;
     float depth;
+    bool hasTexcoords;
 };
 
 struct FragmentShaderOutput {
