@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstdio>
 #include <limits>
+#include <print>
 
 #include "camera.hpp"
 #include "frame-buffer.hpp"
@@ -13,6 +14,7 @@
 #include "renderer.hpp"
 #include "resources.hpp"
 #include "scene.hpp"
+#include "shaders.hpp"
 
 static void glfw_error_callback(int error, const char* description) {
     fprintf(stderr, "GLFW error %d: %s\n", error, description);
@@ -56,8 +58,55 @@ int main(int argc, char** argv) {
     int fb_height = 0;
     glfwGetFramebufferSize(window, &fb_width, &fb_height);
 
+    VertexShader vertexShader = [](const VertexShaderInput& input,
+                                   const VertexShaderUniforms& uniforms) -> VertexShaderOutput {
+        VertexShaderOutput output;
+        output.clipCoords =
+            uniforms.MVP * vec4(input.worldPosition.x, input.worldPosition.y, input.worldPosition.z, 1.0);
+        return output;
+    };
+
+    FragmentShader fragmentShader = [](const FragmentShaderInput& input,
+                                       const FragmentShaderUniforms& uniforms) -> FragmentShaderOutput {
+        FragmentShaderOutput output;
+        if (input.material.texture) {
+            output.color = input.material.texture->sample(input.uv);
+        } else {
+            output.color = input.material.baseColor;
+        }
+        Color factor =
+            (uniforms.lighting.ambientColor +
+             uniforms.lighting.light.color * std::max(0.f, dot(input.normal, uniforms.lighting.light.direction)));
+        output.color.r = output.color.r * factor.r;
+        output.color.g = output.color.g * factor.g;
+        output.color.b = output.color.b * factor.b;
+        return output;
+    };
+
+    FragmentShader normalFragmentShader = [](const FragmentShaderInput& input,
+                                             const FragmentShaderUniforms& uniforms) -> FragmentShaderOutput {
+        FragmentShaderOutput output;
+        output.color = Color(input.normal.x, input.normal.y, input.normal.z, 1.0);
+        return output;
+    };
+
+    FragmentShader depthFragmentShader = [](const FragmentShaderInput& input,
+                                            const FragmentShaderUniforms& uniforms) -> FragmentShaderOutput {
+        FragmentShaderOutput output;
+        float gray = input.depth;
+        output.color = Color(gray, gray, gray, 1.0f);
+        return output;
+    };
+
+    FragmentShader texcoordsFragmentShader = [](const FragmentShaderInput& input,
+                                                const FragmentShaderUniforms& uniforms) -> FragmentShaderOutput {
+        FragmentShaderOutput output;
+        output.color = Color(input.uv.x, input.uv.y, 0.0f, 1.0f);
+        return output;
+    };
+
     FrameBuffer buffer(fb_width, fb_height);
-    Renderer renderer;
+    Renderer renderer(vertexShader, fragmentShader);
 
     Resources resources;
 
@@ -98,6 +147,15 @@ int main(int argc, char** argv) {
     double output_time = 0.0;
 
     while (!glfwWindowShouldClose(window)) {
+        if (visualizationMode == VisualizationMode::Final)
+            renderer.setFragmentShader(fragmentShader);
+        else if (visualizationMode == VisualizationMode::Normals)
+            renderer.setFragmentShader(normalFragmentShader);
+        else if (visualizationMode == VisualizationMode::Texcoords)
+            renderer.setFragmentShader(texcoordsFragmentShader);
+        else if (visualizationMode == VisualizationMode::DepthBuffer)
+            renderer.setFragmentShader(depthFragmentShader);
+
         const double now = glfwGetTime();
         prev_time = now;
 
@@ -114,37 +172,8 @@ int main(int argc, char** argv) {
 
         start = glfwGetTime();
 
-        if (visualizationMode == VisualizationMode::Final)
-            glDrawPixels(fb_width, fb_height, GL_RGBA, GL_FLOAT, buffer.pixels.data());
-        else if (visualizationMode == VisualizationMode::DepthBuffer) {
-            std::vector<Color> output(buffer.depth.size());
+        glDrawPixels(fb_width, fb_height, GL_RGBA, GL_FLOAT, buffer.pixels.data());
 
-            float maxDepth = -std::numeric_limits<float>::infinity();
-            float minDepth = std::numeric_limits<float>::infinity();
-            for (float depth : buffer.depth) {
-                if (std::isfinite(depth)) {
-                    if (depth > maxDepth) maxDepth = depth;
-                    if (depth < minDepth) minDepth = depth;
-                }
-            }
-
-            float denumerator = 1.0f / (maxDepth - minDepth);
-            std::transform(buffer.depth.begin(), buffer.depth.end(), output.begin(),
-                           [denumerator, minDepth](float depth) {
-                               if (!std::isfinite(depth)) return Color(0, 0, 0, 1);
-                               float gray = (depth - minDepth) * denumerator;
-                               return Color(gray, gray, gray, 1.0f);
-                           });
-            glDrawPixels(fb_width, fb_height, GL_RGBA, GL_FLOAT, output.data());
-        } else if (visualizationMode == VisualizationMode::Normals)
-            glDrawPixels(fb_width, fb_height, GL_RGBA, GL_FLOAT, buffer.normals.data());
-        else if (visualizationMode == VisualizationMode::Texcoords) {
-            std::vector<Color> output(buffer.depth.size());
-
-            std::transform(buffer.texcoords.begin(), buffer.texcoords.end(), output.begin(),
-                           [](vec2 uv) { return Color(uv.x, uv.y, 0.0f, 1.0f); });
-            glDrawPixels(fb_width, fb_height, GL_RGBA, GL_FLOAT, output.data());
-        }
         glfwSwapBuffers(window);
         glfwPollEvents();
 

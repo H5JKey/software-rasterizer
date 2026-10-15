@@ -7,6 +7,7 @@
 
 #include "frame-buffer.hpp"
 #include "math/vectors.hpp"
+#include "shaders.hpp"
 
 void Renderer::drawTriangle(FrameBuffer& buffer, const VertexAttributes& v0, const VertexAttributes& v1,
                             const VertexAttributes& v2, float edge012, const Scene::Lighting& lighting,
@@ -22,6 +23,7 @@ void Renderer::drawTriangle(FrameBuffer& buffer, const VertexAttributes& v0, con
     bboxMin.x = std::min(std::max(std::floor(bboxMin.x), 0.f), width);
     bboxMin.y = std::min(std::max(std::floor(bboxMin.y), 0.f), height);
 
+    FragmentShaderUniforms uniforms{.lighting = lighting};
     for (int py = static_cast<int>(bboxMin.y); py < static_cast<int>(bboxMax.y); py++) {
         for (int px = static_cast<int>(bboxMin.x); px < static_cast<int>(bboxMax.x); px++) {
             vec2 center(px + 0.5f, py + 0.5f);
@@ -39,6 +41,7 @@ void Renderer::drawTriangle(FrameBuffer& buffer, const VertexAttributes& v0, con
             float depth = v0.depth * u + v1.depth * v + v2.depth * w;
             std::size_t idx = py * buffer.width + px;
             if (depth < buffer.depth[idx]) {
+                buffer.depth[idx] = depth;
                 float q0 = u * v0.invW;
                 float q1 = v * v1.invW;
                 float q2 = w * v2.invW;
@@ -46,25 +49,13 @@ void Renderer::drawTriangle(FrameBuffer& buffer, const VertexAttributes& v0, con
                 q0 *= s;
                 q1 *= s;
                 q2 *= s;
-                Color color;
                 vec3 normal = normalize(v0.normal * q0 + v1.normal * q1 + v2.normal * q2);
                 vec2 uv = v0.texcoord * q0 + v1.texcoord * q1 + v2.texcoord * q2;
-                if (material.texture) {
-                    color = material.texture->sample(uv);
-                } else {
-                    color = material.baseColor;
-                }
-                Color factor = (lighting.ambientColor +
-                                lighting.light.color * std::max(0.f, dot(normal, lighting.light.direction)));
-                color.r = color.r * factor.r;
-                color.g = color.g * factor.g;
-                color.b = color.b * factor.b;
 
-                buffer.pixels[idx] = color;
-                buffer.depth[idx] = depth;
-                buffer.normals[idx] =
-                    Color(normal.x * 0.5f + 0.5f, normal.y * 0.5f + 0.5f, normal.z * 0.5f + 0.5f, 1.0f);
-                buffer.texcoords[idx] = uv;
+                buffer.pixels[idx] =
+                    fragmentShader(
+                        FragmentShaderInput{.normal = normal, .material = material, .uv = uv, .depth = depth}, uniforms)
+                        .color;
             }
         }
     }
@@ -75,10 +66,12 @@ void Renderer::drawMesh(FrameBuffer& buffer, const Mesh& mesh, const mat4& M, co
     std::vector<vec4> clipCoords;
     clipCoords.reserve(mesh.vertices.size());
 
-    mat4 MVP = VP * M;
+    VertexShaderUniforms uniforms{.MVP = VP * M};
     mat3 normalMat = M.upperLeft<3>().inverse().transpose();
 
-    for (const auto& v : mesh.vertices) clipCoords.emplace_back(MVP * vec4(v.x, v.y, v.z, 1.0f));
+    for (const auto& v : mesh.vertices) {
+        clipCoords.emplace_back(vertexShader(VertexShaderInput{.worldPosition = v}, uniforms).clipCoords);
+    }
 
     for (size_t tri_idx = 0; tri_idx < mesh.indices.size() / 3; tri_idx++) {
         if (clipCoords[mesh.indices[3 * tri_idx]].w < zNear || clipCoords[mesh.indices[3 * tri_idx + 1]].w < zNear ||
