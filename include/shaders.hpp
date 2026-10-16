@@ -110,13 +110,7 @@ inline const FragmentShader unlitShader = [](const FragmentShaderInput& input,
 inline const FragmentShader normalsShader = [](const FragmentShaderInput& input,
                                                const FragmentShaderUniforms& uniforms) -> FragmentShaderOutput {
     FragmentShaderOutput output;
-    output.color = Color(input.normal.x, input.normal.y, input.normal.z, 1.0);
-    return output;
-};
-
-inline const FragmentShader depthShader = [](const FragmentShaderInput& input,
-                                             const FragmentShaderUniforms& uniforms) -> FragmentShaderOutput {
-    FragmentShaderOutput output;
+    output.color = Color((input.normal.x + 1.f) / 2.f, (input.normal.y + 1.f) / 2.f, (input.normal.z + 1.f) / 2.f, 1.f);
     return output;
 };
 
@@ -137,7 +131,7 @@ inline const PostProcessingShader normalizeDepthColors =
     float gray = uniforms.image.depth[input.pixel_idx];
     if (std::isfinite(gray)) {
         float denum = 1.0f / (uniforms.maxDepth - uniforms.minDepth);
-        float gray = (uniforms.image.depth[input.pixel_idx] - uniforms.minDepth) * denum;
+        gray = (gray - uniforms.minDepth) * denum;
         output.color = Color(gray, gray, gray, 1.0f);
     } else {
         output.color = Color(0, 0, 0, 1);

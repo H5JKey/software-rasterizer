@@ -161,7 +161,7 @@ void Renderer::setRenderMode(RenderMode mode) {
             fragmentShader = defaultShaders::normalsShader;
             break;
         case RenderMode::Depth:
-            fragmentShader = defaultShaders::depthShader;
+            /* No need in fragment shader. Doing all bussiness in post processing stage*/
             break;
         case RenderMode::Texcoords:
             fragmentShader = defaultShaders::texcoordsShader;
