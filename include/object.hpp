@@ -1,10 +1,11 @@
 #pragma once
-#include <print>
 #include <stdexcept>
+#include <utility>
 
 #include "material.hpp"
 #include "math/matrices.hpp"
 #include "mesh.hpp"
+
 class Object {
    public:
     Mesh mesh;
@@ -16,12 +17,13 @@ class Object {
 
     void addInstance(mat4 modelMatrix = mat4::identity()) {
         inverseTransposeModelMatrices.push_back(modelMatrix.upperLeft<3>().inverse().transpose());
-        modelMatrices.push_back(modelMatrix);
+        modelMatrices.push_back(std::move(modelMatrix));
     }
 
     void updateTransform(std::size_t instance_id, mat4 modelMatrix) {
-        if (instance_id >= modelMatrices.size() || instance_id < 0)
+        if (instance_id >= modelMatrices.size()) {
             throw std::invalid_argument("Incorrect instance_id");
+        }
         inverseTransposeModelMatrices[instance_id] = modelMatrix.upperLeft<3>().inverse().transpose();
         modelMatrices[instance_id] = std::move(modelMatrix);
     }
