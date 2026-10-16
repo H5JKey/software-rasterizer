@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <limits>
 #include <vector>
 
 #include "frame-buffer.hpp"
@@ -23,7 +24,10 @@ void Renderer::drawTriangle(FrameBuffer& buffer, const ScreenVertexAttributes& v
     bboxMin.x = std::clamp(std::floor(bboxMin.x), 0.0f, width);
     bboxMin.y = std::clamp(std::floor(bboxMin.y), 0.0f, height);
 
-    const FragmentShaderUniforms uniforms{.lighting = lighting};
+    const FragmentShaderUniforms uniforms{
+        .lighting = lighting,
+        .material = material,
+    };
 
     for (int py = static_cast<int>(bboxMin.y); py < static_cast<int>(bboxMax.y); ++py) {
         for (int px = static_cast<int>(bboxMin.x); px < static_cast<int>(bboxMax.x); ++px) {
@@ -40,48 +44,53 @@ void Renderer::drawTriangle(FrameBuffer& buffer, const ScreenVertexAttributes& v
             float w = e01p / edge012;
 
             float depth = v0.depth * u + v1.depth * v + v2.depth * w;
+
             std::size_t idx = static_cast<std::size_t>(py) * buffer.width + static_cast<std::size_t>(px);
-            float curBufferDepth = 0.f;
+
+            if (mode == RenderMode::Depth) {
 #pragma omp critical
-            {
-                curBufferDepth = buffer.depth[idx];
+                if (depth < buffer.depth[idx]) {
+                    buffer.depth[idx] = depth;
+                }
+                continue;
             }
-            if (depth >= curBufferDepth) continue;
+            if (depth >= buffer.depth[idx]) continue;
 
             float q0 = u * v0.invW;
             float q1 = v * v1.invW;
             float q2 = w * v2.invW;
-            float invQSum = 1.0f / (q0 + q1 + q2);
-            float p0 = q0 * invQSum;
-            float p1 = q1 * invQSum;
-            float p2 = q2 * invQSum;
+            float s = 1.0f / (q0 + q1 + q2);
+            float p0 = q0 * s;
+            float p1 = q1 * s;
+            float p2 = q2 * s;
 
             vec3 normal = normalize(v0.normal * p0 + v1.normal * p1 + v2.normal * p2);
             vec2 uv;
             if (hasTexcoords) uv = v0.texcoord * p0 + v1.texcoord * p1 + v2.texcoord * p2;
             Color pixelColor =
                 fragmentShader(
-                    FragmentShaderInput{
-                        .normal = normal, .material = material, .uv = uv, .depth = depth, .hasTexcoords = hasTexcoords},
+                    FragmentShaderInput{.normal = normal, .uv = uv, .depth = depth, .hasTexcoords = hasTexcoords},
                     uniforms)
                     .color;
 #pragma omp critical
             {
-                buffer.pixels[idx] = pixelColor;
+                if (depth < buffer.depth[idx]) {
+                    buffer.pixels[idx] = pixelColor;
 
-                buffer.depth[idx] = depth;
+                    buffer.depth[idx] = depth;
+                }
             }
         }
     }
 }
 
 void Renderer::drawObject(FrameBuffer& buffer, const Object& object, const mat4& VP, const Scene::Lighting& lighting,
-                          float zNear) const {
+                          float zNear) {
     const Mesh& mesh = object.mesh;
     const bool hasTexcoords = mesh.texcoords.size() == mesh.vertices.size();
 
-    std::vector<vec4> clipCoords(mesh.vertices.size());
-    std::vector<vec3> transformedNormals(mesh.vertices.size());
+    clipCoords.resize(mesh.vertices.size());
+    transformedNormals.resize(mesh.vertices.size());
 
     for (std::size_t instance_id = 0; instance_id < object.instancesCount(); ++instance_id) {
         const VertexShaderUniforms uniforms{
@@ -127,10 +136,52 @@ void Renderer::drawObject(FrameBuffer& buffer, const Object& object, const mat4&
     }
 }
 
-void Renderer::drawScene(FrameBuffer& buffer, const Scene& scene) const {
+void Renderer::drawScene(FrameBuffer& buffer, const Scene& scene) {
     const mat4 VP = scene.camera.getPerspectiveMatrix() * scene.camera.getLookAtMatrix();
 
     for (const auto& object : scene.objects) {
         drawObject(buffer, object, VP, scene.lighting, scene.camera.zNear);
+    }
+
+    if (mode == RenderMode::Depth) {
+        normalizeDepth(buffer);
+    }
+}
+
+void Renderer::setRenderMode(RenderMode mode) {
+    this->mode = mode;
+    switch (mode) {
+        case RenderMode::Unlit:
+            fragmentShader = defaultShaders::unlitShader;
+            break;
+        case RenderMode::Shaded:
+            fragmentShader = defaultShaders::lambertShader;
+            break;
+        case RenderMode::Normals:
+            fragmentShader = defaultShaders::normalsShader;
+            break;
+        case RenderMode::Depth:
+            fragmentShader = defaultShaders::depthShader;
+            break;
+        case RenderMode::Texcoords:
+            fragmentShader = defaultShaders::texcoordsShader;
+            break;
+    }
+}
+
+void Renderer::normalizeDepth(FrameBuffer& buffer) {
+    float minDepth = std::numeric_limits<float>::infinity();
+    float maxDepth = -std::numeric_limits<float>::infinity();
+    for (float depth : buffer.depth) {
+        if (std::isfinite(depth)) {
+            minDepth = std::min(minDepth, depth);
+            maxDepth = std::max(maxDepth, depth);
+        }
+    }
+    PostProcessingShaderUniforms uniforms{.image = buffer, .minDepth = minDepth, .maxDepth = maxDepth};
+#pragma omp parallel for
+    for (std::size_t idx = 0; idx < buffer.depth.size(); idx++) {
+        buffer.pixels[idx] =
+            defaultShaders::normalizeDepthColors(PostProcessingShaderInput{.pixel_idx = idx}, uniforms).color;
     }
 }

@@ -3,27 +3,25 @@
 #include "image-utils.hpp"
 
 Color Texture::sample(vec2 uv) const {
-    float x = uv.x * width;
-    float y = uv.y * height;
-    int left = std::min(static_cast<int>(x), static_cast<int>(width) - 1);
-    int right = std::min(static_cast<int>(x) + 1, static_cast<int>(width) - 1);
+    float x = uv.x * width - 0.5;
+    float y = uv.y * height - 0.5;
 
-    int down = std::min(static_cast<int>(y) + 1, static_cast<int>(height) - 1);
-    int up = std::min(static_cast<int>(y), static_cast<int>(height) - 1);
+    std::size_t i = floor(x);
+    std::size_t j = floor(y);
+    float a = x - i;
+    float b = y - j;
 
-    Color leftUpColor = pixels[up * width + left];
-    Color leftDownColor = pixels[down * width + left];
-    Color rightUpColor = pixels[up * width + right];
-    Color rightDownColor = pixels[down * width + right];
+    std::size_t left = i;
+    std::size_t right = (i + 1) % width;
+    std::size_t up = j;
+    std::size_t down = (j + 1) % height;
 
-    float rightWeight = x - left;
-    float leftWeight = 1.0f - rightWeight;
+    Color color00 = pixels[up * width + left];
+    Color color10 = pixels[up * width + right];
+    Color color01 = pixels[down * width + left];
+    Color color11 = pixels[down * width + right];
 
-    float downWeight = y - up;
-    float upWeight = 1.0f - downWeight;
-
-    return (leftUpColor * leftWeight + rightUpColor * rightWeight) * upWeight +
-           (leftDownColor * leftWeight + rightDownColor * rightWeight) * downWeight;
+    return color00 * (1 - a) * (1 - b) + color10 * a * (1 - b) + color01 * (1 - a) * b + color11 * a * b;
 }
 
 Texture Texture::loadFromFile(const std::filesystem::path& filename) {
