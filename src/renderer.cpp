@@ -178,7 +178,7 @@ void Renderer::normalizeDepth(FrameBuffer& buffer) {
             maxDepth = std::max(maxDepth, depth);
         }
     }
-    PostProcessingShaderUniforms uniforms{.image = buffer, .minDepth = minDepth, .maxDepth = maxDepth};
+    PostProcessingShaderUniforms uniforms{.frameBuffer = buffer, .minDepth = minDepth, .maxDepth = maxDepth};
 #pragma omp parallel for
     for (std::size_t idx = 0; idx < buffer.depth.size(); idx++) {
         buffer.pixels[idx] =

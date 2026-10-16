@@ -6,14 +6,14 @@ Color Texture::sample(vec2 uv) const {
     float x = uv.x * width - 0.5;
     float y = uv.y * height - 0.5;
 
-    std::size_t i = floor(x);
-    std::size_t j = floor(y);
+    int i = static_cast<int>(std::floor(x));
+    int j = static_cast<int>(std::floor(y));
     float a = x - i;
     float b = y - j;
 
-    std::size_t left = i;
+    std::size_t left = (i + static_cast<int>(width)) % width;
     std::size_t right = (i + 1) % width;
-    std::size_t up = j;
+    std::size_t up = (j + static_cast<int>(height)) % height;
     std::size_t down = (j + 1) % height;
 
     Color color00 = pixels[up * width + left];

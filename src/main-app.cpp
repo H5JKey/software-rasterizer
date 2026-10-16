@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cstdio>
 #include <limits>
+#include <numbers>
 
 #include "camera.hpp"
 #include "frame-buffer.hpp"
@@ -65,7 +66,7 @@ int main(int argc, char** argv) {
     glfwSetKeyCallback(window, key_callback);
     glfwSwapInterval(0);
 
-    constexpr float pi = 3.14159265358979323846f;
+    constexpr float pi = std::numbers::pi;
 
     const vec3 eye(0.0f, 1.0f, 3.5f);
     const vec3 target(0.0f, 0.0f, 0.0f);

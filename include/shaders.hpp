@@ -51,7 +51,7 @@ using FragmentShader = std::function<FragmentShaderOutput(const FragmentShaderIn
 /* Post processing shaders */
 
 struct PostProcessingShaderUniforms {
-    const FrameBuffer& image;
+    const FrameBuffer& frameBuffer;
     float minDepth, maxDepth;
 };
 
@@ -128,8 +128,8 @@ inline const PostProcessingShader normalizeDepthColors =
     [](const PostProcessingShaderInput& input,
        const PostProcessingShaderUniforms& uniforms) -> PostProcessingShaderOutput {
     PostProcessingShaderOutput output;
-    float gray = uniforms.image.depth[input.pixel_idx];
-    if (std::isfinite(gray)) {
+    float gray = uniforms.frameBuffer.depth[input.pixel_idx];
+    if (uniforms.minDepth < uniforms.maxDepth && std::isfinite(gray)) {
         float denum = 1.0f / (uniforms.maxDepth - uniforms.minDepth);
         gray = (gray - uniforms.minDepth) * denum;
         output.color = Color(gray, gray, gray, 1.0f);
