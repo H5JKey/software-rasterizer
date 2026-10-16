@@ -39,7 +39,7 @@ cmake --build build -j --config Release
 ### main_cli
 
 ```bash
-./build/main_cli [mesh.obj] [texture.png|jpg] [output.png]
+./build/main-cli [mesh.obj] [texture.png|jpg] [output.png]
 ```
 
 Загружает меш, применяет к нему текстуру (при наличии), рендерит сцену, состоящую из этого меша
@@ -49,11 +49,11 @@ cmake --build build -j --config Release
 ### main_app
 
 ```bash
-./build/main_app [width] [height]
+./build/main-app <width> <height>
 ```
 
 Открывает окно и каждый кадр и рендерит сцену в реальном времени состояющую из нескольких подвижных
-объектов. Выводит в консоль FPS, а также воемя затраченное на вывод изображения и сам процесс растеризации.
+объектов. Выводит в стандартный поток вывода FPS, а также время затраченное на вывод изображения и сам процесс растеризации.
 
 ## Соглашения
 
