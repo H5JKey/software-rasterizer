@@ -27,42 +27,50 @@ void Renderer::drawTriangle(FrameBuffer& buffer, const ScreenVertexAttributes& v
 
     for (int py = static_cast<int>(bboxMin.y); py < static_cast<int>(bboxMax.y); ++py) {
         for (int px = static_cast<int>(bboxMin.x); px < static_cast<int>(bboxMax.x); ++px) {
-            const vec2 center(px + 0.5f, py + 0.5f);
+            vec2 center(px + 0.5f, py + 0.5f);
 
-            const float e12p = edgeFunction(v1.position, v2.position, center);
-            const float e20p = edgeFunction(v2.position, v0.position, center);
-            const float e01p = edgeFunction(v0.position, v1.position, center);
+            float e12p = edgeFunction(v1.position, v2.position, center);
+            float e20p = edgeFunction(v2.position, v0.position, center);
+            float e01p = edgeFunction(v0.position, v1.position, center);
 
             if (e12p * edge012 < 0.0f || e20p * edge012 < 0.0f || e01p * edge012 < 0.0f) continue;
 
-            const float u = e12p / edge012;
-            const float v = e20p / edge012;
-            const float w = e01p / edge012;
+            float u = e12p / edge012;
+            float v = e20p / edge012;
+            float w = e01p / edge012;
 
-            const float depth = v0.depth * u + v1.depth * v + v2.depth * w;
-            const std::size_t idx = static_cast<std::size_t>(py) * buffer.width + static_cast<std::size_t>(px);
-            if (depth >= buffer.depth[idx]) continue;
+            float depth = v0.depth * u + v1.depth * v + v2.depth * w;
+            std::size_t idx = static_cast<std::size_t>(py) * buffer.width + static_cast<std::size_t>(px);
+            float curBufferDepth = 0.f;
+#pragma omp critical
+            {
+                curBufferDepth = buffer.depth[idx];
+            }
+            if (depth >= curBufferDepth) continue;
 
-            const float q0 = u * v0.invW;
-            const float q1 = v * v1.invW;
-            const float q2 = w * v2.invW;
-            const float invQSum = 1.0f / (q0 + q1 + q2);
-            const float p0 = q0 * invQSum;
-            const float p1 = q1 * invQSum;
-            const float p2 = q2 * invQSum;
+            float q0 = u * v0.invW;
+            float q1 = v * v1.invW;
+            float q2 = w * v2.invW;
+            float invQSum = 1.0f / (q0 + q1 + q2);
+            float p0 = q0 * invQSum;
+            float p1 = q1 * invQSum;
+            float p2 = q2 * invQSum;
 
-            const vec3 normal = normalize(v0.normal * p0 + v1.normal * p1 + v2.normal * p2);
+            vec3 normal = normalize(v0.normal * p0 + v1.normal * p1 + v2.normal * p2);
             vec2 uv;
             if (hasTexcoords) uv = v0.texcoord * p0 + v1.texcoord * p1 + v2.texcoord * p2;
+            Color pixelColor =
+                fragmentShader(
+                    FragmentShaderInput{
+                        .normal = normal, .material = material, .uv = uv, .depth = depth, .hasTexcoords = hasTexcoords},
+                    uniforms)
+                    .color;
+#pragma omp critical
+            {
+                buffer.pixels[idx] = pixelColor;
 
-            buffer.pixels[idx] = fragmentShader(
-                FragmentShaderInput{.normal = normal,
-                                    .material = material,
-                                    .uv = uv,
-                                    .depth = depth,
-                                    .hasTexcoords = hasTexcoords},
-                uniforms).color;
-            buffer.depth[idx] = depth;
+                buffer.depth[idx] = depth;
+            }
         }
     }
 }
@@ -72,27 +80,22 @@ void Renderer::drawObject(FrameBuffer& buffer, const Object& object, const mat4&
     const Mesh& mesh = object.mesh;
     const bool hasTexcoords = mesh.texcoords.size() == mesh.vertices.size();
 
-    // Reuse these buffers for every instance, but keep them local to this draw call.
-    // Static storage would make concurrent Renderer calls race with each other.
     std::vector<vec4> clipCoords(mesh.vertices.size());
     std::vector<vec3> transformedNormals(mesh.vertices.size());
 
-    for (std::size_t instance_id = 0; instance_id < object.modelMatrices.size(); ++instance_id) {
+    for (std::size_t instance_id = 0; instance_id < object.instancesCount(); ++instance_id) {
         const VertexShaderUniforms uniforms{
-            .VP = VP, .M = object.modelMatrices, .inverseTransposeM = object.inverseTransposeModelMatrices};
+            .VP = VP, .M = object.getModel(), .inverseTransposeM = object.getInverseTransposeModel()};
 
 #pragma omp parallel for
-        for (std::ptrdiff_t i = 0; i < static_cast<std::ptrdiff_t>(mesh.vertices.size()); ++i) {
+        for (std::size_t i = 0; i < mesh.vertices.size(); i++) {
             const auto output = vertexShader(
-                VertexShaderInput{.position = mesh.vertices[i], .normal = mesh.normals[i],
-                                  .instance_id = instance_id},
+                VertexShaderInput{.position = mesh.vertices[i], .normal = mesh.normals[i], .instance_id = instance_id},
                 uniforms);
-            clipCoords[static_cast<std::size_t>(i)] = output.position;
-            transformedNormals[static_cast<std::size_t>(i)] = output.normal;
+            clipCoords[i] = output.position;
+            transformedNormals[i] = output.normal;
         }
-
-        // Triangle rasterization writes shared pixels and depth values. It must remain
-        // serial until rasterization is partitioned into non-overlapping screen tiles.
+#pragma omp parallel for
         for (std::size_t tri_idx = 0; tri_idx < mesh.indices.size() / 3; ++tri_idx) {
             const std::size_t i0 = static_cast<std::size_t>(mesh.indices[3 * tri_idx]);
             const std::size_t i1 = static_cast<std::size_t>(mesh.indices[3 * tri_idx + 1]);
@@ -115,8 +118,7 @@ void Renderer::drawObject(FrameBuffer& buffer, const Object& object, const mat4&
                 if (hasTexcoords) attributes[i].texcoord = mesh.texcoords[vertexIndex];
             }
 
-            const float area =
-                edgeFunction(attributes[0].position, attributes[1].position, attributes[2].position);
+            const float area = edgeFunction(attributes[0].position, attributes[1].position, attributes[2].position);
             if (area < 1e-6f) continue;  // Degenerate triangle or back face.
 
             drawTriangle(buffer, attributes[0], attributes[1], attributes[2], area, lighting, object.material,
@@ -127,6 +129,7 @@ void Renderer::drawObject(FrameBuffer& buffer, const Object& object, const mat4&
 
 void Renderer::drawScene(FrameBuffer& buffer, const Scene& scene) const {
     const mat4 VP = scene.camera.getPerspectiveMatrix() * scene.camera.getLookAtMatrix();
+
     for (const auto& object : scene.objects) {
         drawObject(buffer, object, VP, scene.lighting, scene.camera.zNear);
     }

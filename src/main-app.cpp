@@ -113,7 +113,6 @@ int main(int argc, char** argv) {
 
     Renderer renderer(vertexShader, fragmentShader);
 
-    Mesh mesh = Mesh::loadFromFile("../resources/Bunny.obj");
     Texture texture = Texture::loadFromFile("../resources/textures/porcelain.jpg");
     Material material{.baseColor = Color(1, 1, 1, 1), .texture = &texture};
 
@@ -136,14 +135,13 @@ int main(int argc, char** argv) {
     lighting.light.direction = normalize(vec3(1, 0, 0));
     Scene scene(camera, lighting);
 
-    scene.objects.emplace_back(mesh, material);
+    scene.objects.emplace_back(Mesh::loadFromFile("../resources/Bunny.obj"), material);
     scene.objects[0].addInstance();
 
-    scene.objects.emplace_back(mesh, Material{.baseColor = Color(1, 1, 1, 1)});
-    for (int x = -1; x <= 1; x++) {
-        for (int y = -1; y <= 1; y++) {
-            scene.objects[1].addInstance(translation(vec3(x, y, 2.5)) * scale(vec3(0.2, 0.2, 0.2)));
-        }
+    scene.objects.emplace_back(Mesh::loadFromFile("../resources/Chicken_01.obj"),
+                               Material{.baseColor = Color(1, 1, 1, 1)});
+    for (int i = 0; i < 8; i++) {
+        scene.objects[1].addInstance();
     }
 
     double prev_time = glfwGetTime();
@@ -168,7 +166,12 @@ int main(int argc, char** argv) {
 
         const float angle = static_cast<float>(now) * 0.5f;
 
-        scene.objects[0].updateTransform(0, rotationY(angle));
+        scene.objects[0].updateTransform(0, rotationY(angle) * scale(vec3(2, 2, 2)));
+        for (int instance = 0; instance < 8; instance++) {
+            float theta = angle + (2.0f * pi * instance) / 8.0f;
+            scene.objects[1].updateTransform(
+                instance, rotationZ(theta) * scale(vec3(1, 1, 1)) * translation(vec3(0, 4, 0)) * rotationY(pi / 2));
+        }
 
         double start = glfwGetTime();
         buffer.clear();

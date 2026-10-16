@@ -7,11 +7,12 @@
 #include "mesh.hpp"
 
 class Object {
+    std::vector<mat4> modelMatrices;
+    std::vector<mat3> inverseTransposeModelMatrices;
+
    public:
     Mesh mesh;
     Material material;
-    std::vector<mat4> modelMatrices;
-    std::vector<mat3> inverseTransposeModelMatrices;
 
     Object(Mesh mesh, Material material) : mesh(std::move(mesh)), material(std::move(material)) {}
 
@@ -21,10 +22,16 @@ class Object {
     }
 
     void updateTransform(std::size_t instance_id, mat4 modelMatrix) {
-        if (instance_id >= modelMatrices.size()) {
+        if (instance_id >= instancesCount()) {
             throw std::invalid_argument("Incorrect instance_id");
         }
         inverseTransposeModelMatrices[instance_id] = modelMatrix.upperLeft<3>().inverse().transpose();
         modelMatrices[instance_id] = std::move(modelMatrix);
     }
+
+    const std::vector<mat4>& getModel() const { return modelMatrices; }
+
+    const std::vector<mat3>& getInverseTransposeModel() const { return inverseTransposeModelMatrices; }
+
+    std::size_t instancesCount() const { return modelMatrices.size(); }
 };

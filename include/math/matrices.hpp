@@ -35,7 +35,7 @@ struct Matrix {
             for (std::size_t col = 0; col < N; col++) {
                 sum += data[N * row + col] * vec[col];
             }
-            result[row] = sum;
+            result.data[row] = sum;
         }
         return result;
     }
@@ -48,7 +48,7 @@ struct Matrix {
                 for (std::size_t i = 0; i < N; i++) {
                     sum += data[N * row + i] * other[N * i + col];
                 }
-                result[row, col] = sum;
+                result.data[row * N + col] = sum;
             }
         }
         return result;
@@ -58,7 +58,7 @@ struct Matrix {
         Matrix<N> result;
         for (std::size_t row = 0; row < N; row++) {
             for (std::size_t col = 0; col < N; col++) {
-                result[N * col + row] = data[N * row + col];
+                result.data[N * col + row] = data[N * row + col];
             }
         }
         return result;

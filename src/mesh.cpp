@@ -92,38 +92,6 @@ static uint32_t hash_vertex(int v_idx, int vt_idx, int vn_idx) {
 
 static int valid_index(int idx, unsigned int count) { return idx >= 0 && (unsigned int)idx < count; }
 
-void Mesh::normalize() {
-    struct AABB aabb = AABB();
-    const vec3 size = aabb.size();
-    const float maxSize = std::max(size.x, std::max(size.y, size.z));
-    if (maxSize <= 0.0) return;
-    float factor = 1.0f / maxSize;
-    mat4 transform = scale(vec3(factor, factor, factor)) * translation(-aabb.center());
-    for (auto& v : vertices) {
-        vec4 v4 = vec4(v.x, v.y, v.z, 1.0);
-        v4 = transform * v4;
-        v = vec3(v4.x, v4.y, v4.z);
-    }
-}
-
-AABB Mesh::buildAABB() const {
-    AABB aabb;
-    aabb.min = vec3(std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity(),
-                    std::numeric_limits<float>::infinity());
-    aabb.max = vec3(-std::numeric_limits<float>::infinity(), -std::numeric_limits<float>::infinity(),
-                    -std::numeric_limits<float>::infinity());
-    for (const auto& v : vertices) {
-        aabb.min.x = std::min(aabb.min.x, v.x);
-        aabb.min.y = std::min(aabb.min.y, v.y);
-        aabb.min.z = std::min(aabb.min.z, v.z);
-
-        aabb.max.x = std::max(aabb.max.x, v.x);
-        aabb.max.y = std::max(aabb.max.y, v.y);
-        aabb.max.z = std::max(aabb.max.z, v.z);
-    }
-    return aabb;
-}
-
 void Mesh::buildNormals() {
     normals.assign(vertices.size(), vec3(0, 0, 0));
     for (std::size_t tri_idx = 0; tri_idx < indices.size() / 3; tri_idx++) {
@@ -222,4 +190,36 @@ Mesh Mesh::loadFromFile(const std::filesystem::path& filename) {
     if (m.vertices.size() != m.normals.size()) m.buildNormals();
     m.normalize();
     return m;
+}
+
+void Mesh::normalize() {
+    struct AABB aabb = buildAABB();
+    const vec3 size = aabb.size();
+    const float maxSize = std::max(size.x, std::max(size.y, size.z));
+    if (maxSize <= 0.0) return;
+    float factor = 1.0f / maxSize;
+    mat4 transform = scale(vec3(factor, factor, factor)) * translation(-aabb.center());
+    for (auto& v : vertices) {
+        vec4 v4 = vec4(v.x, v.y, v.z, 1.0);
+        v4 = transform * v4;
+        v = vec3(v4.x, v4.y, v4.z);
+    }
+}
+
+AABB Mesh::buildAABB() const {
+    AABB aabb;
+    aabb.min = vec3(std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity(),
+                    std::numeric_limits<float>::infinity());
+    aabb.max = vec3(-std::numeric_limits<float>::infinity(), -std::numeric_limits<float>::infinity(),
+                    -std::numeric_limits<float>::infinity());
+    for (const auto& v : vertices) {
+        aabb.min.x = std::min(aabb.min.x, v.x);
+        aabb.min.y = std::min(aabb.min.y, v.y);
+        aabb.min.z = std::min(aabb.min.z, v.z);
+
+        aabb.max.x = std::max(aabb.max.x, v.x);
+        aabb.max.y = std::max(aabb.max.y, v.y);
+        aabb.max.z = std::max(aabb.max.z, v.z);
+    }
+    return aabb;
 }
