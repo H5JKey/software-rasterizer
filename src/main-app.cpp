@@ -1,10 +1,9 @@
 #include <GL/gl.h>
 #include <GLFW/glfw3.h>
 
-#include <algorithm>
-#include <cstdio>
-#include <limits>
+#include <cstdlib>
 #include <numbers>
+#include <print>
 
 #include "camera.hpp"
 #include "frame-buffer.hpp"
@@ -12,7 +11,6 @@
 #include "math/vectors.hpp"
 #include "renderer.hpp"
 #include "scene.hpp"
-#include "shaders.hpp"
 
 static void glfw_error_callback(int error, const char* description) {
     fprintf(stderr, "GLFW error %d: %s\n", error, description);
@@ -38,6 +36,12 @@ static void key_callback(GLFWwindow* window, int key, int /*scancode*/, int acti
 }
 
 int main(int argc, char** argv) {
+    if (argc != 3) {
+        std::println("Usage: {} <width> <height>", argv[0]);
+        return EXIT_FAILURE;
+    }
+    int width = std::stoi(argv[1]);
+    int height = std::stoi(argv[1]);
     glfwSetErrorCallback(glfw_error_callback);
 
     if (!glfwInit()) {
@@ -46,7 +50,7 @@ int main(int argc, char** argv) {
 
     glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
-    GLFWwindow* window = glfwCreateWindow(800, 600, "Software Renderer", nullptr, nullptr);
+    GLFWwindow* window = glfwCreateWindow(width, height, "Software Renderer", nullptr, nullptr);
 
     if (!window) {
         glfwTerminate();
@@ -130,9 +134,9 @@ int main(int argc, char** argv) {
         const double elapsed = glfwGetTime() - report_time;
 
         if (elapsed >= 1.0) {
-            printf(
-                "frame time: %.3f ms (%.1f FPS) | "
-                "output: %.3f | raster: %.3f\n",
+            std::println(
+                "frame time: {:.3f} ms ({:.1f} FPS) | "
+                "output: {:.3f} | raster: {:.3f}\n",
                 1000.0 * elapsed / report_frames, report_frames / elapsed, output_time, raster_time);
             fflush(stdout);
 
