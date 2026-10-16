@@ -6,12 +6,12 @@
 #include "math/vectors.hpp"
 #include "scene.hpp"
 
-/* Vertex shaders*/
+/* Vertex shaders */
 
 struct VertexShaderUniforms {
     const mat4& VP;
     const std::vector<mat4>& M;
-    const std::vector<mat3> inverseTransposeM;
+    const std::vector<mat3>& inverseTransposeM;
 };
 
 struct VertexShaderInput {
@@ -27,7 +27,7 @@ struct VertexShaderOutput {
 
 using VertexShader = std::function<VertexShaderOutput(const VertexShaderInput&, const VertexShaderUniforms&)>;
 
-/* Fragment shaders*/
+/* Fragment shaders */
 
 struct FragmentShaderUniforms {
     const Scene::Lighting& lighting;
