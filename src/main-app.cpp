@@ -41,7 +41,7 @@ int main(int argc, char** argv) {
         return EXIT_FAILURE;
     }
     int width = std::stoi(argv[1]);
-    int height = std::stoi(argv[1]);
+    int height = std::stoi(argv[2]);
     glfwSetErrorCallback(glfw_error_callback);
 
     if (!glfwInit()) {
@@ -136,7 +136,7 @@ int main(int argc, char** argv) {
         if (elapsed >= 1.0) {
             std::println(
                 "frame time: {:.3f} ms ({:.1f} FPS) | "
-                "output: {:.3f} | raster: {:.3f}\n",
+                "output: {:.3f} | raster: {:.3f}",
                 1000.0 * elapsed / report_frames, report_frames / elapsed, output_time, raster_time);
             fflush(stdout);
 

@@ -92,22 +92,6 @@ static uint32_t hash_vertex(int v_idx, int vt_idx, int vn_idx) {
 
 static int valid_index(int idx, unsigned int count) { return idx >= 0 && (unsigned int)idx < count; }
 
-void Mesh::buildNormals() {
-    normals.assign(vertices.size(), vec3(0, 0, 0));
-    for (std::size_t tri_idx = 0; tri_idx < indices.size() / 3; tri_idx++) {
-        vec3 v0 = vertices[indices[3 * tri_idx]];
-        vec3 v1 = vertices[indices[3 * tri_idx + 1]];
-        vec3 v2 = vertices[indices[3 * tri_idx + 2]];
-
-        vec3 normal = ::normalize(cross(v1 - v0, v2 - v0));
-
-        normals[indices[3 * tri_idx]] = normals[indices[3 * tri_idx]] + normal;
-        normals[indices[3 * tri_idx + 1]] = normals[indices[3 * tri_idx + 1]] + normal;
-        normals[indices[3 * tri_idx + 2]] = normals[indices[3 * tri_idx + 2]] + normal;
-    }
-    for (auto& n : normals) n = ::normalize(n);
-}
-
 Mesh Mesh::loadFromFile(const std::filesystem::path& filename) {
     Mesh m;
     m.vertices.clear();
@@ -222,4 +206,20 @@ AABB Mesh::buildAABB() const {
         aabb.max.z = std::max(aabb.max.z, v.z);
     }
     return aabb;
+}
+
+void Mesh::buildNormals() {
+    normals.assign(vertices.size(), vec3(0, 0, 0));
+    for (std::size_t tri_idx = 0; tri_idx < indices.size() / 3; tri_idx++) {
+        vec3 v0 = vertices[indices[3 * tri_idx]];
+        vec3 v1 = vertices[indices[3 * tri_idx + 1]];
+        vec3 v2 = vertices[indices[3 * tri_idx + 2]];
+
+        vec3 normal = cross(v1 - v0, v2 - v0);
+
+        normals[indices[3 * tri_idx]] = normals[indices[3 * tri_idx]] + normal;
+        normals[indices[3 * tri_idx + 1]] = normals[indices[3 * tri_idx + 1]] + normal;
+        normals[indices[3 * tri_idx + 2]] = normals[indices[3 * tri_idx + 2]] + normal;
+    }
+    for (auto& n : normals) n = ::normalize(n);
 }
