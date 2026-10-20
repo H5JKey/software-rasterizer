@@ -1,7 +1,5 @@
 # Software Rasterizer
 
-```
-
 ## Сборка под Linux
 
 Сборка (из корня шаблона):
