@@ -36,12 +36,12 @@ cmake --build build -j --config Release
 ### main_cli
 
 ```bash
-./build/main_cli <mesh.obj> 
+./build/main_cli <mesh.obj> <width> <height> <output.png> <mode> [texture]
 ```
 
 ### main_app
 
 ```bash
-./build/main_app [width] [height]
+./build/main_app <width> <height>
 ```
 
