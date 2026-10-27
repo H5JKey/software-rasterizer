@@ -1,6 +1,9 @@
 module;
+#include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <functional>
+#include <vector>
 
 export module core.engine.shaders;
 
