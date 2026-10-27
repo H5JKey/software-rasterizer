@@ -1,9 +1,12 @@
 module;
 
+#include <algorithm>
+#include <cassert>
+#include <cstddef>
 #include <cstdint>
-#include <stdexcept>
-#include <format>
 #include <cerrno>
+#include <format>
+#include <stdexcept>
 #include <cstring>
 #include <filesystem>
 #include <limits>
