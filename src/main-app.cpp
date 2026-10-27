@@ -10,6 +10,9 @@
 
 import core.camera;
 import core.frameBuffer;
+import core.material;
+import core.mesh;
+import core.texture;
 import math.transforms;
 import math.vectors;
 import core.engine.renderer;
