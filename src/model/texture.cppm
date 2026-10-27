@@ -5,7 +5,7 @@ module;
 #include <utility>
 #include <vector>
 
-export module core.texture;
+export module model.texture;
 import utils.images;
 import math.vectors;
 

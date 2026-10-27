@@ -9,7 +9,7 @@ module;
 #include <stdexcept>
 #include <vector>
 
-export module core.mesh;
+export module model.mesh;
 import math.vectors;
 import math.transforms;
 

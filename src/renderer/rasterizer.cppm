@@ -5,19 +5,19 @@ module;
 #include <vector>
 #include <utility>
 
-export module core.engine.renderer;
+export module renderer.rasterizer;
 
-import core.frameBuffer;
+import renderer.frameBuffer;
 import math.vectors;
 import math.matrices;
-import core.scene;
-import core.engine.shaders;
-import core.object;
-import core.material;
-import core.mesh;
+import scene.scene;
+import renderer.shaders;
+import model.object;
+import model.material;
+import model.mesh;
 
 
-export class Renderer {
+export class Rasterizer {
     std::vector<vec3> transformedNormals;
     std::vector<vec4> clipCoords;
     struct ScreenVertexAttributes {
@@ -50,7 +50,7 @@ export class Renderer {
     };
     RenderMode mode = RenderMode::Shaded;
 
-    Renderer() : vertexShader(defaultShaders::vertexShader), fragmentShader(defaultShaders::lambertShader) {
+    Rasterizer() : vertexShader(defaultShaders::vertexShader), fragmentShader(defaultShaders::lambertShader) {
         transformedNormals.reserve(1024);
         clipCoords.reserve(1024);
     }

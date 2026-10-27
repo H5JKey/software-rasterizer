@@ -8,16 +8,16 @@
 #include <print>
 #include <string>
 
-import core.scene;
-import core.camera;
-import core.engine.renderer;
-import core.texture;
-import math.vectors;
+import scene.camera;
+import renderer.frameBuffer;
+import model.material;
+import model.mesh;
+import model.texture;
 import math.transforms;
-import core.mesh;
-import core.material;
+import math.vectors;
+import renderer.rasterizer;
+import scene.scene;
 import utils.images;
-import core.frameBuffer;
 
 void printHelp(const std::string& programName) {
     std::println("Usage: {} <mesh.obj> <width> <height> <output.png> <mode> [texture]", programName);
@@ -35,22 +35,22 @@ int main(int argc, char** argv) try {
         return EXIT_FAILURE;
     }
 
-    Renderer renderer;
+    Rasterizer rasterizer;
 
     int width = std::stoi(argv[2]);
     int height = std::stoi(argv[3]);
     FrameBuffer frame(width, height);
     std::string optionStr(argv[5]);
     if (optionStr == "shaded")
-        renderer.setRenderMode(Renderer::RenderMode::Shaded);
+        rasterizer.setRenderMode(Rasterizer::RenderMode::Shaded);
     else if (optionStr == "unlit")
-        renderer.setRenderMode(Renderer::RenderMode::Unlit);
+        rasterizer.setRenderMode(Rasterizer::RenderMode::Unlit);
     else if (optionStr == "normals")
-        renderer.setRenderMode(Renderer::RenderMode::Normals);
+        rasterizer.setRenderMode(Rasterizer::RenderMode::Normals);
     else if (optionStr == "depth")
-        renderer.setRenderMode(Renderer::RenderMode::Depth);
+        rasterizer.setRenderMode(Rasterizer::RenderMode::Depth);
     else if (optionStr == "texcoords")
-        renderer.setRenderMode(Renderer::RenderMode::Texcoords);
+        rasterizer.setRenderMode(Rasterizer::RenderMode::Texcoords);
     else {
         std::println("Unrecognised mode: {}", optionStr);
         std::println("Try {} --help", programName);
@@ -83,7 +83,7 @@ int main(int argc, char** argv) try {
     scene.objects.emplace_back(mesh, material);
     scene.objects[0].addInstance();
 
-    renderer.drawScene(frame, scene);
+    rasterizer.drawScene(frame, scene);
 
     save_image_f32_png_rgb(reinterpret_cast<float*>(frame.pixels.data()), argv[4], width, height, 4, 2.2);
 

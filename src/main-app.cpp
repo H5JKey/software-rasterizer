@@ -8,21 +8,21 @@
 #include <print>
 #include <string>
 
-import core.camera;
-import core.frameBuffer;
-import core.material;
-import core.mesh;
-import core.texture;
+import scene.camera;
+import renderer.frameBuffer;
+import model.material;
+import model.mesh;
+import model.texture;
 import math.transforms;
 import math.vectors;
-import core.engine.renderer;
-import core.scene;
+import renderer.rasterizer;
+import scene.scene;
 
 static void glfw_error_callback(int error, const char* description) {
     fprintf(stderr, "GLFW error %d: %s\n", error, description);
 }
 
-Renderer renderer;
+Rasterizer rasterizer;
 
 static void key_callback(GLFWwindow* window, int key, int /*scancode*/, int action, int /*mods*/
 ) {
@@ -30,15 +30,15 @@ static void key_callback(GLFWwindow* window, int key, int /*scancode*/, int acti
         glfwSetWindowShouldClose(window, GLFW_TRUE);
     }
 
-    if (key == GLFW_KEY_0 && action == GLFW_PRESS) renderer.setRenderMode(Renderer::RenderMode::Shaded);
+    if (key == GLFW_KEY_0 && action == GLFW_PRESS) rasterizer.setRenderMode(Rasterizer::RenderMode::Shaded);
 
-    if (key == GLFW_KEY_1 && action == GLFW_PRESS) renderer.setRenderMode(Renderer::RenderMode::Unlit);
+    if (key == GLFW_KEY_1 && action == GLFW_PRESS) rasterizer.setRenderMode(Rasterizer::RenderMode::Unlit);
 
-    if (key == GLFW_KEY_2 && action == GLFW_PRESS) renderer.setRenderMode(Renderer::RenderMode::Normals);
+    if (key == GLFW_KEY_2 && action == GLFW_PRESS) rasterizer.setRenderMode(Rasterizer::RenderMode::Normals);
 
-    if (key == GLFW_KEY_3 && action == GLFW_PRESS) renderer.setRenderMode(Renderer::RenderMode::Depth);
+    if (key == GLFW_KEY_3 && action == GLFW_PRESS) rasterizer.setRenderMode(Rasterizer::RenderMode::Depth);
 
-    if (key == GLFW_KEY_4 && action == GLFW_PRESS) renderer.setRenderMode(Renderer::RenderMode::Texcoords);
+    if (key == GLFW_KEY_4 && action == GLFW_PRESS) rasterizer.setRenderMode(Rasterizer::RenderMode::Texcoords);
 }
 
 int main(int argc, char** argv) {
@@ -69,7 +69,7 @@ int main(int argc, char** argv) {
 
     FrameBuffer buffer(fb_width, fb_height);
 
-    Texture texture = Texture::loadFromFile("../resources/textures/porcelain.jpg");
+    Texture texture = Texture::loadFromFile("resources/textures/porcelain.jpg");
     Material material{.baseColor = Color(1, 1, 1, 1), .texture = &texture};
 
     glfwMakeContextCurrent(window);
@@ -91,10 +91,10 @@ int main(int argc, char** argv) {
     lighting.light.direction = normalize(vec3(1, 0, 0));
     Scene scene(camera, lighting);
 
-    scene.objects.emplace_back(Mesh::loadFromFile("../resources/Bunny.obj"), material);
+    scene.objects.emplace_back(Mesh::loadFromFile("resources/Bunny.obj"), material);
     scene.objects[0].addInstance();
 
-    scene.objects.emplace_back(Mesh::loadFromFile("../resources/Chicken_01.obj"),
+    scene.objects.emplace_back(Mesh::loadFromFile("resources/Chicken_01.obj"),
                                Material{.baseColor = Color(1, 1, 1, 1)});
     for (int i = 0; i < 8; i++) {
         scene.objects[1].addInstance();
@@ -122,7 +122,7 @@ int main(int argc, char** argv) {
 
         double start = glfwGetTime();
         buffer.clear();
-        renderer.drawScene(buffer, scene);
+        rasterizer.drawScene(buffer, scene);
 
         raster_time += glfwGetTime() - start;
 

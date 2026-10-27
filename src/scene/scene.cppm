@@ -2,9 +2,9 @@ module;
 #include <utility>
 #include <vector>
 
-export module core.scene;
-import core.camera;
-import core.object;
+export module scene.scene;
+import scene.camera;
+import model.object;
 import math.vectors;
 
 export struct DirectionalLight {

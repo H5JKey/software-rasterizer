@@ -1,4 +1,4 @@
-export module core.camera;
+export module scene.camera;
 
 import math.vectors;
 import math.matrices;

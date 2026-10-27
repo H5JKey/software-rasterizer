@@ -6,13 +6,13 @@ module;
 #include <vector>
 #include <utility>
 
-export module core.engine.shaders;
+export module renderer.shaders;
 
-import core.frameBuffer;
-import core.material;
+import renderer.frameBuffer;
+import model.material;
 import math.matrices;
 import math.vectors;
-import core.scene;
+import scene.scene;
 
 /* Vertex shaders */
 

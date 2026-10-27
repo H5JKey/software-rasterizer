@@ -8,7 +8,6 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 project(SoftwareRaster CXX C)
 
 
-
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
 endif()
@@ -28,32 +27,32 @@ else()
 endif()
 
 add_library(raster
-    src/image-utils.cpp
-    src/renderer.cpp
-    src/texture.cpp
-    src/mesh.cpp
-    src/stb-impl.cpp
-    src/tinyobj-impl.cpp
-    src/object.cpp
+    src/utils/image-utils.cpp
+    src/renderer/rasterizer.cpp
+    src/model/texture.cpp
+    src/model/mesh.cpp
+    src/utils/stb-impl.cpp
+    src/utils/tinyobj-impl.cpp
+    src/model/object.cpp
 )
 
 target_sources(raster
 PUBLIC
     FILE_SET CXX_MODULES
     FILES
-        modules/math/matrices.cppm
-        modules/math/vectors.cppm
-        modules/math/transforms.cppm
-        modules/core/engine/renderer.cppm
-        modules/core/engine/shaders.cppm
-        modules/core/camera.cppm
-        modules/core/frame-buffer.cppm
-        modules/core/material.cppm
-        modules/core/mesh.cppm
-        modules/core/object.cppm
-        modules/core/scene.cppm
-        modules/core/texture.cppm
-        modules/utils/image-utils.cppm
+        src/math/matrices.cppm
+        src/math/vectors.cppm
+        src/math/transforms.cppm
+        src/renderer/rasterizer.cppm
+        src/renderer/shaders.cppm
+        src/scene/camera.cppm
+        src/renderer/frame-buffer.cppm
+        src/model/material.cppm
+        src/model/mesh.cppm
+        src/model/object.cppm
+        src/scene/scene.cppm
+        src/model/texture.cppm
+        src/utils/image-utils.cppm
 )
 
 target_include_directories(raster PUBLIC

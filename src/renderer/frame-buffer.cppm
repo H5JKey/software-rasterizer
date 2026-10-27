@@ -4,7 +4,7 @@ module;
 #include <limits>
 #include <vector>
 
-export module core.frameBuffer;
+export module renderer.frameBuffer;
 
 import math.vectors;
 

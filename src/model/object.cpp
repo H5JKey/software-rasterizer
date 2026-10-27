@@ -4,12 +4,11 @@ module;
 #include <utility>
 #include <vector>
 
-module core.object;
+module model.object;
 
-import core.material;
+import model.material;
 import math.matrices;
-import core.mesh;
-import math.vectors;
+import model.mesh;
 
 Object::Object(Mesh mesh, Material material) : mesh(std::move(mesh)), material(std::move(material)) {}
 

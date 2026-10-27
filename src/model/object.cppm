@@ -2,11 +2,10 @@ module;
 #include <cstddef>
 #include <vector>
 
-export module core.object;
-import core.material;
+export module model.object;
+import model.material;
 import math.matrices;
-import core.mesh;
-import math.vectors;
+import model.mesh;
 
 
 export class Object {

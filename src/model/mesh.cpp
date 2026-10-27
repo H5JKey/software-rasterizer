@@ -25,7 +25,7 @@ module;
 
 #endif
 
-module core.mesh;
+module model.mesh;
 import math.matrices;
 import math.vectors;
 import math.transforms;

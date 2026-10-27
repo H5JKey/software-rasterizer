@@ -6,7 +6,7 @@ module;
 #include <utility>
 #include <vector>
 
-module core.texture;
+module model.texture;
 
 Color Texture::sample(vec2 uv) const {
     float x = uv.x * width - 0.5;

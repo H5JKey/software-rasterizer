@@ -1,7 +1,7 @@
-export module core.material;
+export module model.material;
 
 import math.vectors;
-import core.texture;
+import model.texture;
 
 export struct Material {
     Color baseColor = Color(1, 1, 1, 1);

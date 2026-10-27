@@ -4,18 +4,18 @@ module;
 #include <cstddef>
 #include <limits>
 
-module core.engine.renderer;
+module renderer.rasterizer;
 
-import core.frameBuffer;
-import core.material;
-import core.object;
+import renderer.frameBuffer;
+import model.material;
+import model.object;
 import math.vectors;
 import math.matrices;
-import core.scene;
-import core.engine.shaders;
+import scene.scene;
+import renderer.shaders;
 
 
-void Renderer::drawTriangle(FrameBuffer& buffer, const ScreenVertexAttributes& v0, const ScreenVertexAttributes& v1,
+void Rasterizer::drawTriangle(FrameBuffer& buffer, const ScreenVertexAttributes& v0, const ScreenVertexAttributes& v1,
                             const ScreenVertexAttributes& v2, float edge012, const Scene::Lighting& lighting,
                             const Material& material, bool hasTexcoords) const {
     const float width = static_cast<float>(buffer.width);
@@ -90,7 +90,7 @@ void Renderer::drawTriangle(FrameBuffer& buffer, const ScreenVertexAttributes& v
     }
 }
 
-void Renderer::drawObject(FrameBuffer& buffer, const Object& object, const mat4& VP, const Scene::Lighting& lighting,
+void Rasterizer::drawObject(FrameBuffer& buffer, const Object& object, const mat4& VP, const Scene::Lighting& lighting,
                           float zNear) {
     const Mesh& mesh = object.mesh;
     const bool hasTexcoords = mesh.texcoords.size() == mesh.vertices.size();
@@ -142,7 +142,7 @@ void Renderer::drawObject(FrameBuffer& buffer, const Object& object, const mat4&
     }
 }
 
-void Renderer::drawScene(FrameBuffer& buffer, const Scene& scene) {
+void Rasterizer::drawScene(FrameBuffer& buffer, const Scene& scene) {
     const mat4 VP = scene.camera.getPerspectiveMatrix() * scene.camera.getLookAtMatrix();
 
     for (const auto& object : scene.objects) {
@@ -154,7 +154,7 @@ void Renderer::drawScene(FrameBuffer& buffer, const Scene& scene) {
     }
 }
 
-void Renderer::setRenderMode(RenderMode mode) {
+void Rasterizer::setRenderMode(RenderMode mode) {
     this->mode = mode;
     switch (mode) {
         case RenderMode::Unlit:
@@ -175,7 +175,7 @@ void Renderer::setRenderMode(RenderMode mode) {
     }
 }
 
-void Renderer::normalizeDepth(FrameBuffer& buffer) {
+void Rasterizer::normalizeDepth(FrameBuffer& buffer) {
     float minDepth = std::numeric_limits<float>::infinity();
     float maxDepth = -std::numeric_limits<float>::infinity();
     for (float depth : buffer.depth) {
