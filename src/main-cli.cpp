@@ -9,7 +9,11 @@
 #include <string>
 
 import core.scene;
+import core.camera;
 import core.engine.renderer;
+import core.texture;
+import math.vectors;
+import math.transforms;
 import core.mesh;
 import core.material;
 import utils.images;
