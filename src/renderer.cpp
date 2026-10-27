@@ -1,6 +1,11 @@
+module;
+#include <algorithm>
+#include <cmath>
+#include <cstddef>
+#include <limits>
+
 module core.engine.renderer;
 
-import std;
 import core.frameBuffer;
 import math.vectors;
 import math.matrices;
