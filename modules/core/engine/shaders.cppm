@@ -33,7 +33,7 @@ export struct VertexShaderOutput {
     vec3 normal;
 };
 
-using VertexShader = std::function<VertexShaderOutput(const VertexShaderInput&, const VertexShaderUniforms&)>;
+export using VertexShader = std::function<VertexShaderOutput(const VertexShaderInput&, const VertexShaderUniforms&)>;
 
 /* Fragment shaders */
 

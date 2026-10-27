@@ -12,6 +12,10 @@ import math.vectors;
 import math.matrices;
 import core.scene;
 import core.engine.shaders;
+import core.object;
+import core.material;
+import core.mesh;
+
 
 export class Renderer {
     std::vector<vec3> transformedNormals;

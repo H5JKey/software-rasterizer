@@ -6,8 +6,8 @@ module;
 #include <vector>
 
 export module core.texture;
-import math.vectors;
 import utils.images;
+import math.vectors;
 
 export class Texture {
     Texture(std::size_t width, std::size_t height, std::vector<Color> pixels)

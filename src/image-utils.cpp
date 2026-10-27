@@ -1,13 +1,9 @@
 module;
-
-#include <cmath>
-#include <cstdint>
 #include <filesystem>
-#include <format>
-#include <stdexcept>
 #include <vector>
 #include "stb_image.h"
 #include "stb_image_write.h"
+#include <cmath>
 
 module utils.images;
 
@@ -73,7 +69,7 @@ std::vector<float> load_image_f32_rgb(const std::filesystem::path& filename, int
     int channels = 0;
     stbi_uc* raw_data = stbi_load(filename.c_str(), &w, &h, &channels, 3);
     if (channels != 3 || raw_data == NULL || w <= 0 || h <= 0) {
-        if (raw_data) STBI_FREE(raw_data);
+        if (raw_data) stbi_image_free(raw_data);
         throw std::runtime_error(std::format("Failed to load mage {}", filename.string()));
     }
 
@@ -95,7 +91,7 @@ std::vector<float> load_image_f32_rgb(const std::filesystem::path& filename, int
 
     for (int i = 0; i < sz; i++) data_f32[i] = powf(raw_data[i] / 255.0f, gamma);
 
-    STBI_FREE(raw_data);
+    stbi_image_free(raw_data);
 
     return data_f32;
 }

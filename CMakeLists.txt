@@ -34,9 +34,9 @@ add_library(raster
     src/mesh.cpp
     src/stb-impl.cpp
     src/tinyobj-impl.cpp
+    src/object.cpp
 )
 
-target_compile_options(raster PRIVATE -fmodules)
 target_sources(raster
 PUBLIC
     FILE_SET CXX_MODULES
@@ -62,7 +62,7 @@ target_include_directories(raster PUBLIC
 
 find_package(OpenMP)
 
-target_link_libraries(raster PRIVATE  OpenMP::OpenMP_CXX)
+target_link_libraries(raster PUBLIC  OpenMP::OpenMP_CXX)
 
 # --- консольная программа: меш + картинка -> PNG ---------------------------
 
