@@ -1,6 +1,12 @@
 #include <GL/gl.h>
 #include <GLFW/glfw3.h>
 
+#include <cstdio>
+#include <cstdlib>
+#include <format>
+#include <numbers>
+#include <string>
+
 import core.camera;
 import core.frameBuffer;
 import math.transforms;
