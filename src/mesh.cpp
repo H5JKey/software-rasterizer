@@ -28,6 +28,7 @@ module;
 module core.mesh;
 import math.matrices;
 import math.vectors;
+import math.transforms;
 
 static char* mmap_file(size_t* len, const char* filename) {
 #ifdef _WIN64
