@@ -3,6 +3,8 @@ module;
 #include <cmath>
 #include <cstddef>
 #include <filesystem>
+#include <utility>
+#include <vector>
 
 module core.texture;
 
