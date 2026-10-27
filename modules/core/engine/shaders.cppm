@@ -4,6 +4,7 @@ module;
 #include <cstddef>
 #include <functional>
 #include <vector>
+#include <utility>
 
 export module core.engine.shaders;
 
