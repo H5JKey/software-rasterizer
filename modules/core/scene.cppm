@@ -1,6 +1,5 @@
 module;
 #include <utility>
-#include <utility>
 #include <vector>
 
 export module core.scene;
