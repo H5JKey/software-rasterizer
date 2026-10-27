@@ -1,14 +1,11 @@
-#include "renderer.hpp"
+module core.engine.renderer;
 
-#include <algorithm>
-#include <cmath>
-#include <cstddef>
-#include <limits>
-#include <vector>
+import core.frameBuffer;
+import math.vectors;
+import math.matrices;
+import core.scene;
+import core.engine.shaders;
 
-#include "frame-buffer.hpp"
-#include "math/vectors.hpp"
-#include "shaders.hpp"
 
 void Renderer::drawTriangle(FrameBuffer& buffer, const ScreenVertexAttributes& v0, const ScreenVertexAttributes& v1,
                             const ScreenVertexAttributes& v2, float edge012, const Scene::Lighting& lighting,
@@ -72,6 +69,7 @@ void Renderer::drawTriangle(FrameBuffer& buffer, const ScreenVertexAttributes& v
                     FragmentShaderInput{.normal = normal, .uv = uv, .depth = depth, .hasTexcoords = hasTexcoords},
                     uniforms)
                     .color;
+
 #pragma omp critical
             {
                 if (depth < buffer.depth[idx]) {

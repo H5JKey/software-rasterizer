@@ -1,9 +1,14 @@
-#pragma once
+module;
 #include <sys/types.h>
 
 #include <array>
 #include <cmath>
-#include <type_traits>
+#include <stdexcept>
+#include <utility>
+
+export module math.vectors;
+
+export {
 
 template <std::size_t N>
 struct VecStorage {
@@ -161,4 +166,5 @@ constexpr float edgeFunction(const vec2& a, const vec2& b, const vec2& p) {
 
 constexpr vec3 cross(const vec3& a, const vec3& b) {
     return vec3(a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x);
+}
 }

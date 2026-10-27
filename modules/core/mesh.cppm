@@ -1,11 +1,18 @@
-#pragma once
-
+module;
 #include <filesystem>
 #include <vector>
+#include <limits>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdexcept>
 
-#include "math/vectors.hpp"
+export module core.mesh;
+import math.vectors;
+import math.transforms;
 
-struct AABB {
+export struct AABB {
     vec3 min;
     vec3 max;
 
@@ -13,7 +20,7 @@ struct AABB {
     vec3 size() { return max - min; }
 };
 
-class Mesh {
+export class Mesh {
     Mesh() = default;
 
    public:

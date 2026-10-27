@@ -1,12 +1,14 @@
-#pragma once
+module;
 #include <stdexcept>
 #include <utility>
+#include <vector>
 
-#include "material.hpp"
-#include "math/matrices.hpp"
-#include "mesh.hpp"
+export module core.object;
+import core.material;
+import math.matrices;
+import core.mesh;
 
-class Object {
+export class Object {
     std::vector<mat4> modelMatrices;
     std::vector<mat3> inverseTransposeModelMatrices;
 

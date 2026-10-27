@@ -1,6 +1,10 @@
-#include "texture.hpp"
+module;
 
-#include "image-utils.hpp"
+#include <cmath>
+#include <cstddef>
+#include <filesystem>
+
+module core.texture;
 
 Color Texture::sample(vec2 uv) const {
     float x = uv.x * width - 0.5;

@@ -1,9 +1,12 @@
-#include <stdexcept>
-#define STB_IMAGE_IMPLEMENTATION
-#define STB_IMAGE_WRITE_IMPLEMENTATION
-#include "image-utils.hpp"
+module;
+
+#include <filesystem>
+#include <vector>
+#include <cmath>
 #include "stb_image.h"
 #include "stb_image_write.h"
+
+module utils.images;
 
 static inline unsigned char tonemap(float x, float a_gammaInv) {
     const int colorLDR = (int)(powf(x, a_gammaInv) * 255.0f + 0.5f);

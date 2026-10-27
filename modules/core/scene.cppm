@@ -1,15 +1,16 @@
-#pragma once
+module;
 #include <vector>
 
-#include "camera.hpp"
-#include "object.hpp"
+export module core.scene;
+import core.camera;
+import core.object;
 
-struct DirectionalLight {
+export struct DirectionalLight {
     vec3 direction;
     Color color;
 };
 
-struct Scene {
+export struct Scene {
     std::vector<Object> objects;
     Camera camera;
     struct Lighting {

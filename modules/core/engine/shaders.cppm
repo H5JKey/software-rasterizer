@@ -1,27 +1,30 @@
-#pragma once
+module;
 #include <cmath>
 #include <functional>
 
-#include "frame-buffer.hpp"
-#include "material.hpp"
-#include "math/matrices.hpp"
-#include "math/vectors.hpp"
-#include "scene.hpp"
+export module core.engine.shaders;
+
+import core.frameBuffer;
+import core.material;
+import math.matrices;
+import math.vectors;
+import core.scene;
+
 /* Vertex shaders */
 
-struct VertexShaderUniforms {
+export struct VertexShaderUniforms {
     const mat4& VP;
     const std::vector<mat4>& M;
     const std::vector<mat3>& inverseTransposeM;
 };
 
-struct VertexShaderInput {
+export struct VertexShaderInput {
     vec3 position;
     vec3 normal;
     std::size_t instance_id;
 };
 
-struct VertexShaderOutput {
+export struct VertexShaderOutput {
     vec4 position;
     vec3 normal;
 };
@@ -30,45 +33,45 @@ using VertexShader = std::function<VertexShaderOutput(const VertexShaderInput&, 
 
 /* Fragment shaders */
 
-struct FragmentShaderUniforms {
+export struct FragmentShaderUniforms {
     const Scene::Lighting& lighting;
     const Material& material;
 };
 
-struct FragmentShaderInput {
+export struct FragmentShaderInput {
     vec3 normal;
     vec2 uv;
     float depth;
     bool hasTexcoords;
 };
 
-struct FragmentShaderOutput {
+export struct FragmentShaderOutput {
     Color color;
 };
 
-using FragmentShader = std::function<FragmentShaderOutput(const FragmentShaderInput&, const FragmentShaderUniforms&)>;
+export using FragmentShader = std::function<FragmentShaderOutput(const FragmentShaderInput&, const FragmentShaderUniforms&)>;
 
 /* Post processing shaders */
 
-struct PostProcessingShaderUniforms {
+export struct PostProcessingShaderUniforms {
     const FrameBuffer& frameBuffer;
     float minDepth, maxDepth;
 };
 
-struct PostProcessingShaderInput {
+export struct PostProcessingShaderInput {
     std::size_t pixel_idx;
 };
 
-struct PostProcessingShaderOutput {
+export struct PostProcessingShaderOutput {
     Color color;
 };
 
-using PostProcessingShader =
+export using PostProcessingShader =
     std::function<PostProcessingShaderOutput(const PostProcessingShaderInput&, const PostProcessingShaderUniforms&)>;
 
 /* Default shaders*/
 
-namespace defaultShaders {
+export namespace defaultShaders {
 
 inline const VertexShader vertexShader = [](const VertexShaderInput& input,
                                             const VertexShaderUniforms& uniforms) -> VertexShaderOutput {

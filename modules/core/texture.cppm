@@ -1,10 +1,14 @@
-#pragma once
+module;
 #include <cstddef>
 #include <filesystem>
-#include <math/vectors.hpp>
 #include <vector>
+#include <cmath>
 
-class Texture {
+export module core.texture;
+import math.vectors;
+import utils.images;
+
+export class Texture {
     Texture(std::size_t width, std::size_t height, std::vector<Color> pixels)
         : width(width), height(height), pixels(std::move(pixels)) {}
 

@@ -1,10 +1,13 @@
-cmake_minimum_required(VERSION 3.10)
-project(SoftwareRaster CXX C)
+cmake_minimum_required(VERSION 4.4)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+
+project(SoftwareRaster CXX C)
+
+
 
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
@@ -29,11 +32,32 @@ add_library(raster
     src/renderer.cpp
     src/texture.cpp
     src/mesh.cpp
+    src/stb-impl.cpp
+    src/tinyobj-impl.cpp
+)
+
+target_compile_options(raster PRIVATE -fmodules)
+target_sources(raster
+PUBLIC
+    FILE_SET CXX_MODULES
+    FILES
+        modules/math/matrices.cppm
+        modules/math/vectors.cppm
+        modules/math/transforms.cppm
+        modules/core/engine/renderer.cppm
+        modules/core/engine/shaders.cppm
+        modules/core/camera.cppm
+        modules/core/frame-buffer.cppm
+        modules/core/material.cppm
+        modules/core/mesh.cppm
+        modules/core/object.cppm
+        modules/core/scene.cppm
+        modules/core/texture.cppm
+        modules/utils/image-utils.cppm
 )
 
 target_include_directories(raster PUBLIC
     external
-    include
 )
 
 find_package(OpenMP)

@@ -1,7 +1,8 @@
-#pragma once
-
+module;
 #include <filesystem>
 #include <vector>
+
+export module utils.images;
 
 void save_image_f32_png_rgb(const float* data, const std::filesystem::path& filename, int w, int h, int channels,
                             float gamma);
