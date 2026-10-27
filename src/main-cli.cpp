@@ -1,4 +1,13 @@
 
+#include <cstdlib>
+#include <exception>
+#include <format>
+#include <iostream>
+#include <numbers>
+#include <optional>
+#include <print>
+#include <string>
+
 import core.scene;
 import core.engine.renderer;
 import core.mesh;
