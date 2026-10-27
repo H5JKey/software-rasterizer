@@ -7,6 +7,8 @@ module;
 module core.engine.renderer;
 
 import core.frameBuffer;
+import core.material;
+import core.object;
 import math.vectors;
 import math.matrices;
 import core.scene;
