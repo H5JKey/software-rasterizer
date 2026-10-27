@@ -1,9 +1,10 @@
 module;
-#include <sys/types.h>
-
+#include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstddef>
 #include <stdexcept>
+#include <type_traits>
 #include <utility>
 
 export module math.vectors;
