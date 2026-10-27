@@ -1,10 +1,14 @@
-#pragma once
+module;
+#include <algorithm>
+#include <cstddef>
 #include <limits>
 #include <vector>
 
-#include "math/vectors.hpp"
+export module core.frameBuffer;
 
-class FrameBuffer {
+import math.vectors;
+
+export class FrameBuffer {
    public:
     size_t width, height;
     std::vector<Color> pixels;

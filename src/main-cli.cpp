@@ -1,13 +1,23 @@
-#include <cstdlib>
-#include <iostream>
-#include <print>
 
-#include "frame-buffer.hpp"
-#include "image-utils.hpp"
-#include "material.hpp"
-#include "mesh.hpp"
-#include "renderer.hpp"
-#include "scene.hpp"
+#include <cstdlib>
+#include <exception>
+#include <format>
+#include <iostream>
+#include <numbers>
+#include <optional>
+#include <print>
+#include <string>
+
+import core.scene;
+import core.camera;
+import core.engine.renderer;
+import core.texture;
+import math.vectors;
+import math.transforms;
+import core.mesh;
+import core.material;
+import utils.images;
+import core.frameBuffer;
 
 void printHelp(const std::string& programName) {
     std::println("Usage: {} <mesh.obj> <width> <height> <output.png> <mode> [texture]", programName);

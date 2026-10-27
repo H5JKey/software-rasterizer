@@ -1,11 +1,19 @@
-#pragma once
-#include "frame-buffer.hpp"
-#include "math/matrices.hpp"
-#include "math/vectors.hpp"
-#include "scene.hpp"
-#include "shaders.hpp"
+module;
 
-class Renderer {
+#include <algorithm>
+#include <cstddef>
+#include <vector>
+#include <utility>
+
+export module core.engine.renderer;
+
+import core.frameBuffer;
+import math.vectors;
+import math.matrices;
+import core.scene;
+import core.engine.shaders;
+
+export class Renderer {
     std::vector<vec3> transformedNormals;
     std::vector<vec4> clipCoords;
     struct ScreenVertexAttributes {

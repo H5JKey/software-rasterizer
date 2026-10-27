@@ -1,9 +1,10 @@
-#pragma once
-#include "math/matrices.hpp"
-#include "math/transforms.hpp"
-#include "math/vectors.hpp"
+export module core.camera;
 
-class Camera {
+import math.vectors;
+import math.matrices;
+import math.transforms;
+
+export class Camera {
    public:
     vec3 eye;
     vec3 target;

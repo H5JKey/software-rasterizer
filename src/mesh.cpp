@@ -1,12 +1,18 @@
+module;
+
+#include <algorithm>
+#include <cassert>
+#include <cstddef>
+#include <cstdint>
+#include <cerrno>
+#include <format>
 #include <stdexcept>
-
-#define TINYOBJ_LOADER_C_IMPLEMENTATION
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
+#include <cstring>
+#include <filesystem>
+#include <limits>
+#include <cstddef>
 #include "tinyobj_loader_c.h"
+
 #ifdef _WIN64
 #define atoll(S) _atoi64(S)
 #include <windows.h>
@@ -17,9 +23,12 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "math/transforms.hpp"
-#include "mesh.hpp"
 #endif
+
+module core.mesh;
+import math.matrices;
+import math.vectors;
+import math.transforms;
 
 static char* mmap_file(size_t* len, const char* filename) {
 #ifdef _WIN64
@@ -171,8 +180,8 @@ Mesh Mesh::loadFromFile(const std::filesystem::path& filename) {
     tinyobj_shapes_free(shapes, num_shapes);
     tinyobj_materials_free(materials, num_materials);
 
-    if (m.vertices.size() != m.normals.size()) m.buildNormals();
     m.normalize();
+    if (m.vertices.size() != m.normals.size()) m.buildNormals();
     return m;
 }
 

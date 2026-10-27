@@ -1,16 +1,22 @@
 #include <GL/gl.h>
 #include <GLFW/glfw3.h>
 
+#include <cstdio>
 #include <cstdlib>
+#include <format>
 #include <numbers>
 #include <print>
+#include <string>
 
-#include "camera.hpp"
-#include "frame-buffer.hpp"
-#include "math/transforms.hpp"
-#include "math/vectors.hpp"
-#include "renderer.hpp"
-#include "scene.hpp"
+import core.camera;
+import core.frameBuffer;
+import core.material;
+import core.mesh;
+import core.texture;
+import math.transforms;
+import math.vectors;
+import core.engine.renderer;
+import core.scene;
 
 static void glfw_error_callback(int error, const char* description) {
     fprintf(stderr, "GLFW error %d: %s\n", error, description);
