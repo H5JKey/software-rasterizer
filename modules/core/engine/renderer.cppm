@@ -3,6 +3,7 @@ module;
 #include <algorithm>
 #include <cstddef>
 #include <vector>
+#include <utility>
 
 export module core.engine.renderer;
 
