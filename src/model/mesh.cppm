@@ -1,12 +1,5 @@
 module;
-#include <cstddef>
-#include <cstdint>
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
 #include <filesystem>
-#include <limits>
-#include <stdexcept>
 #include <vector>
 
 export module model.mesh;

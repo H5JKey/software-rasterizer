@@ -4,11 +4,10 @@ module;
 #include <cstddef>
 #include <functional>
 #include <vector>
-#include <utility>
 
 export module renderer.shaders;
 
-import renderer.frameBuffer;
+import renderer.framebuffer;
 import model.material;
 import math.matrices;
 import math.vectors;
@@ -53,12 +52,13 @@ export struct FragmentShaderOutput {
     Color color;
 };
 
-export using FragmentShader = std::function<FragmentShaderOutput(const FragmentShaderInput&, const FragmentShaderUniforms&)>;
+export using FragmentShader =
+    std::function<FragmentShaderOutput(const FragmentShaderInput&, const FragmentShaderUniforms&)>;
 
 /* Post processing shaders */
 
 export struct PostProcessingShaderUniforms {
-    const FrameBuffer& frameBuffer;
+    const Framebuffer& framebuffer;
     float minDepth, maxDepth;
 };
 
@@ -135,7 +135,7 @@ inline const PostProcessingShader normalizeDepthColors =
     [](const PostProcessingShaderInput& input,
        const PostProcessingShaderUniforms& uniforms) -> PostProcessingShaderOutput {
     PostProcessingShaderOutput output;
-    float gray = uniforms.frameBuffer.depth[input.pixel_idx];
+    float gray = uniforms.framebuffer.depth[input.pixel_idx];
     if (uniforms.minDepth < uniforms.maxDepth && std::isfinite(gray)) {
         float denum = 1.0f / (uniforms.maxDepth - uniforms.minDepth);
         gray = (gray - uniforms.minDepth) * denum;

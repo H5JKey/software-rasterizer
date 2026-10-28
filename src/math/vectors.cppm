@@ -3,12 +3,9 @@ module;
 #include <array>
 #include <cmath>
 #include <cstddef>
-#include <stdexcept>
 #include <type_traits>
-#include <utility>
 
 export module math.vectors;
-
 
 export template <std::size_t N>
 struct VecStorage {
