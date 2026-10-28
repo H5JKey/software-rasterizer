@@ -5,9 +5,11 @@ export module math.transforms;
 import math.vectors;
 import math.matrices;
 
-export constexpr mat4 translation(const vec3& offset) {
-    return mat4(1, 0, 0, offset.x, 0, 1, 0, offset.y, 0, 0, 1, offset.z, 0, 0, 0, 1);
+export constexpr mat4 translation(float offsetX, float offsetY, float offsetZ) {
+    return mat4(1, 0, 0, offsetX, 0, 1, 0, offsetY, 0, 0, 1, offsetZ, 0, 0, 0, 1);
 }
+
+export constexpr mat4 translation(const vec3& offset) { return translation(offset.x, offset.y, offset.z); }
 
 export constexpr mat4 rotationX(float angle) {
     float c = std::cos(angle);
@@ -30,9 +32,11 @@ export constexpr mat4 rotationZ(float angle) {
     return mat4(c, -s, 0, 0, s, c, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1);
 }
 
-export constexpr mat4 scale(const vec3& factors) {
-    return mat4(factors.x, 0, 0, 0, 0, factors.y, 0, 0, 0, 0, factors.z, 0, 0, 0, 0, 1);
+export constexpr mat4 scale(float xFactor, float yFactor, float zFactor) {
+    return mat4(xFactor, 0, 0, 0, 0, yFactor, 0, 0, 0, 0, zFactor, 0, 0, 0, 0, 1);
 }
+
+export constexpr mat4 scale(const vec3& factors) { return scale(factors.x, factors.y, factors.z); }
 
 export constexpr mat4 lookAt(const vec3& eye, const vec3& target, const vec3& up) {
     vec3 zc = normalize(eye - target);

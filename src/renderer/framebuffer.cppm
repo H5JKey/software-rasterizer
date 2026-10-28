@@ -10,17 +10,17 @@ import math.vectors;
 
 export class Framebuffer {
    public:
-    std::size_t width, height;
+    int width, height;
     std::vector<Color> pixels;
     std::vector<float> depth;
 
-    Framebuffer(std::size_t width, std::size_t height)
+    Framebuffer(int width, int height)
         : width(width),
           height(height),
           pixels(width * height),
           depth(width * height, std::numeric_limits<float>::infinity()) {}
 
-    void resize(std::size_t width, std::size_t height) {
+    void resize(int width, int height) {
         this->width = width;
         this->height = height;
 

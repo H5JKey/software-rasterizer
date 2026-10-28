@@ -3,6 +3,7 @@ module;
 #include <GL/gl.h>
 #include <GLFW/glfw3.h>
 
+#include <chrono>
 #include <string>
 #include <vector>
 
@@ -16,6 +17,11 @@ import model.material;
 import model.texture;
 
 export class App {
+    static constexpr float leftPanelWidth = 0.0f;
+    static constexpr float rightPanelWidth = 150.0f;
+    static constexpr float bottomPanelHeight = 0.0f;
+    static constexpr float topPanelHeight = 0.0f;
+
     GLFWwindow* window;
     int width, height;
     Framebuffer framebuffer;
@@ -25,6 +31,10 @@ export class App {
 
     static void handleEvents(GLFWwindow* window, int key, int, int action, int);
     void buildScene();
+
+    void drawUI();
+    void update(double elapsedTime);
+    void drawFrame();
 
    public:
     App(std::size_t width, std::size_t height, const std::string& title);

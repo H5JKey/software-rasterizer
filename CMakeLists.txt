@@ -66,37 +66,49 @@ find_package(OpenMP)
 
 target_link_libraries(raster PUBLIC  OpenMP::OpenMP_CXX)
 
-# --- программа с окном (нужен GLFW) ---------------------------------------
-
 set(OpenGL_GL_PREFERENCE GLVND)
 find_package(OpenGL)
-find_package(glfw3 3.3 QUIET)
+
+include(FetchContent)
+
+FetchContent_Declare(
+    glfw
+    GIT_REPOSITORY https://github.com/glfw/glfw
+    GIT_TAG 3.5.1
+    FIND_PACKAGE_ARGS NAMES glfw 
+)
+
+FetchContent_Declare(
+    imgui
+    GIT_REPOSITORY https://github.com/ocornut/imgui
+    GIT_TAG v1.93.0
+)
 
 
-if (NOT glfw3_FOUND)
-    include(FetchContent)
+set(GLFW_BUILD_EXAMPLES OFF CACHE INTERNAL "")
+set(GLFW_BUILD_TESTS OFF CACHE INTERNAL "")
+set(GLFW_BUILD_DOCS OFF CACHE INTERNAL "")
 
-    FetchContent_Declare(
-        glfw
-        GIT_REPOSITORY https://github.com/glfw/glfw
-        GIT_TAG 3.5.1
-    )
+FetchContent_MakeAvailable(glfw imgui)
 
-    set(GLFW_BUILD_EXAMPLES OFF CACHE INTERNAL "")
-    set(GLFW_BUILD_TESTS OFF CACHE INTERNAL "")
-    set(GLFW_BUILD_DOCS OFF CACHE INTERNAL "")
+add_library(imgui STATIC
+    ${imgui_SOURCE_DIR}/imgui.cpp
+    ${imgui_SOURCE_DIR}/imgui_draw.cpp
+    ${imgui_SOURCE_DIR}/imgui_tables.cpp
+    ${imgui_SOURCE_DIR}/imgui_widgets.cpp
+    ${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.cpp
+    ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp
+)
 
-    FetchContent_MakeAvailable(glfw)
+target_include_directories(imgui PUBLIC
+    ${imgui_SOURCE_DIR}
+    ${imgui_SOURCE_DIR}/backends
+)
 
-    set(glfw3_FOUND ON)
-endif()
+target_link_libraries(imgui PUBLIC glfw)
 
-if(glfw3_FOUND AND OpenGL_FOUND)
-    target_link_libraries(raster PRIVATE 
-        glfw 
-        OpenGL::GL
-    )
-else()
-    message(WARNING "GLFW or OpenGL not found: main-app will not be built. "
-                    "On Debian/Ubuntu run: sudo apt install libglfw3-dev")
-endif()
+target_link_libraries(raster PRIVATE 
+    glfw 
+    OpenGL::GL
+    imgui
+)
