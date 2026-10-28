@@ -1,11 +1,14 @@
-#pragma once
-
+module;
+#include <array>
+#include <cmath>
+#include <cstddef>
 #include <stdexcept>
 #include <utility>
 
-#include "vectors.hpp"
+export module math.matrices;
+import math.vectors;
 
-template <std::size_t N>
+export template <std::size_t N>
 struct Matrix {
     static constexpr std::size_t dim = N;
     std::array<float, N * N> data;
@@ -114,6 +117,6 @@ struct Matrix {
     }
 };
 
-using mat2 = Matrix<2>;
-using mat3 = Matrix<3>;
-using mat4 = Matrix<4>;
+export using mat2 = Matrix<2>;
+export using mat3 = Matrix<3>;
+export using mat4 = Matrix<4>;

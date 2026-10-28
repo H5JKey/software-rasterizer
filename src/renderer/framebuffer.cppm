@@ -1,20 +1,32 @@
-#pragma once
+module;
+#include <algorithm>
+#include <cstddef>
 #include <limits>
 #include <vector>
 
-#include "math/vectors.hpp"
+export module renderer.framebuffer;
 
-class FrameBuffer {
+import math.vectors;
+
+export class Framebuffer {
    public:
-    size_t width, height;
+    std::size_t width, height;
     std::vector<Color> pixels;
     std::vector<float> depth;
 
-    FrameBuffer(size_t width, size_t height)
+    Framebuffer(std::size_t width, std::size_t height)
         : width(width),
           height(height),
           pixels(width * height),
           depth(width * height, std::numeric_limits<float>::infinity()) {}
+
+    void resize(std::size_t width, std::size_t height) {
+        this->width = width;
+        this->height = height;
+
+        pixels.resize(width * height);
+        depth.resize(width * height);
+    }
 
     void clear() {
         std::fill(pixels.begin(), pixels.end(), Color(0.0f, 0.0f, 0.0f, 1.0f));

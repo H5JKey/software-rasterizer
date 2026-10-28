@@ -1,10 +1,12 @@
-cmake_minimum_required(VERSION 3.10)
-project(SoftwareRaster CXX C)
+cmake_minimum_required(VERSION 3.28) 
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+
+project(SoftwareRaster CXX C)
+
 
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
@@ -24,29 +26,45 @@ else()
     endif()
 endif()
 
-add_library(raster
-    src/image-utils.cpp
-    src/renderer.cpp
-    src/texture.cpp
-    src/mesh.cpp
+add_executable(raster
+    src/utils/image-utils.cpp
+    src/renderer/rasterizer.cpp
+    src/model/texture.cpp
+    src/model/mesh.cpp
+    src/utils/stb-impl.cpp
+    src/utils/tinyobj-impl.cpp
+    src/model/object.cpp
+    src/app/app.cpp
+    src/main.cpp
+)
+
+target_sources(raster
+PUBLIC
+    FILE_SET CXX_MODULES
+    FILES
+        src/math/matrices.cppm
+        src/math/vectors.cppm
+        src/math/transforms.cppm
+        src/renderer/rasterizer.cppm
+        src/renderer/shaders.cppm
+        src/scene/camera.cppm
+        src/renderer/framebuffer.cppm
+        src/model/material.cppm
+        src/model/mesh.cppm
+        src/model/object.cppm
+        src/scene/scene.cppm
+        src/model/texture.cppm
+        src/utils/image-utils.cppm
+        src/app/app.cppm
 )
 
 target_include_directories(raster PUBLIC
     external
-    include
 )
 
 find_package(OpenMP)
 
-target_link_libraries(raster PRIVATE  OpenMP::OpenMP_CXX)
-
-# --- консольная программа: меш + картинка -> PNG ---------------------------
-
-add_executable(main-cli src/main-cli.cpp)
-target_link_libraries(main-cli PRIVATE 
-    raster 
-)
-
+target_link_libraries(raster PUBLIC  OpenMP::OpenMP_CXX)
 
 # --- программа с окном (нужен GLFW) ---------------------------------------
 
@@ -74,11 +92,9 @@ if (NOT glfw3_FOUND)
 endif()
 
 if(glfw3_FOUND AND OpenGL_FOUND)
-    add_executable(main-app src/main-app.cpp)
-    target_link_libraries(main-app PRIVATE 
+    target_link_libraries(raster PRIVATE 
         glfw 
         OpenGL::GL
-        raster
     )
 else()
     message(WARNING "GLFW or OpenGL not found: main-app will not be built. "

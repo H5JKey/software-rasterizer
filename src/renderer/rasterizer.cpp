@@ -1,18 +1,22 @@
-#include "renderer.hpp"
-
+module;
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <limits>
-#include <vector>
 
-#include "frame-buffer.hpp"
-#include "math/vectors.hpp"
-#include "shaders.hpp"
+module renderer.rasterizer;
 
-void Renderer::drawTriangle(FrameBuffer& buffer, const ScreenVertexAttributes& v0, const ScreenVertexAttributes& v1,
-                            const ScreenVertexAttributes& v2, float edge012, const Scene::Lighting& lighting,
-                            const Material& material, bool hasTexcoords) const {
+import renderer.framebuffer;
+import model.material;
+import model.object;
+import math.vectors;
+import math.matrices;
+import scene.scene;
+import renderer.shaders;
+
+void Rasterizer::drawTriangle(Framebuffer& buffer, const ScreenVertexAttributes& v0, const ScreenVertexAttributes& v1,
+                              const ScreenVertexAttributes& v2, float edge012, const Scene::Lighting& lighting,
+                              const Material& material, bool hasTexcoords) const {
     const float width = static_cast<float>(buffer.width);
     const float height = static_cast<float>(buffer.height);
 
@@ -72,6 +76,7 @@ void Renderer::drawTriangle(FrameBuffer& buffer, const ScreenVertexAttributes& v
                     FragmentShaderInput{.normal = normal, .uv = uv, .depth = depth, .hasTexcoords = hasTexcoords},
                     uniforms)
                     .color;
+
 #pragma omp critical
             {
                 if (depth < buffer.depth[idx]) {
@@ -84,8 +89,8 @@ void Renderer::drawTriangle(FrameBuffer& buffer, const ScreenVertexAttributes& v
     }
 }
 
-void Renderer::drawObject(FrameBuffer& buffer, const Object& object, const mat4& VP, const Scene::Lighting& lighting,
-                          float zNear) {
+void Rasterizer::drawObject(Framebuffer& buffer, const Object& object, const mat4& VP, const Scene::Lighting& lighting,
+                            float zNear) {
     const Mesh& mesh = object.mesh;
     const bool hasTexcoords = mesh.texcoords.size() == mesh.vertices.size();
 
@@ -136,7 +141,7 @@ void Renderer::drawObject(FrameBuffer& buffer, const Object& object, const mat4&
     }
 }
 
-void Renderer::drawScene(FrameBuffer& buffer, const Scene& scene) {
+void Rasterizer::drawScene(Framebuffer& buffer, const Scene& scene) {
     const mat4 VP = scene.camera.getPerspectiveMatrix() * scene.camera.getLookAtMatrix();
 
     for (const auto& object : scene.objects) {
@@ -148,7 +153,7 @@ void Renderer::drawScene(FrameBuffer& buffer, const Scene& scene) {
     }
 }
 
-void Renderer::setRenderMode(RenderMode mode) {
+void Rasterizer::setRenderMode(RenderMode mode) {
     this->mode = mode;
     switch (mode) {
         case RenderMode::Unlit:
@@ -169,7 +174,7 @@ void Renderer::setRenderMode(RenderMode mode) {
     }
 }
 
-void Renderer::normalizeDepth(FrameBuffer& buffer) {
+void Rasterizer::normalizeDepth(Framebuffer& buffer) {
     float minDepth = std::numeric_limits<float>::infinity();
     float maxDepth = -std::numeric_limits<float>::infinity();
     for (float depth : buffer.depth) {
@@ -178,7 +183,7 @@ void Renderer::normalizeDepth(FrameBuffer& buffer) {
             maxDepth = std::max(maxDepth, depth);
         }
     }
-    PostProcessingShaderUniforms uniforms{.frameBuffer = buffer, .minDepth = minDepth, .maxDepth = maxDepth};
+    PostProcessingShaderUniforms uniforms{.framebuffer = buffer, .minDepth = minDepth, .maxDepth = maxDepth};
 #pragma omp parallel for
     for (std::size_t idx = 0; idx < buffer.depth.size(); idx++) {
         buffer.pixels[idx] =

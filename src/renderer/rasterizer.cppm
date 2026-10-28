@@ -1,11 +1,20 @@
-#pragma once
-#include "frame-buffer.hpp"
-#include "math/matrices.hpp"
-#include "math/vectors.hpp"
-#include "scene.hpp"
-#include "shaders.hpp"
+module;
 
-class Renderer {
+#include <utility>
+#include <vector>
+
+export module renderer.rasterizer;
+
+import renderer.framebuffer;
+import math.vectors;
+import math.matrices;
+import scene.scene;
+import renderer.shaders;
+import model.object;
+import model.material;
+import model.mesh;
+
+export class Rasterizer {
     std::vector<vec3> transformedNormals;
     std::vector<vec4> clipCoords;
     struct ScreenVertexAttributes {
@@ -19,14 +28,14 @@ class Renderer {
     VertexShader vertexShader;
     FragmentShader fragmentShader;
 
-    void drawTriangle(FrameBuffer& buffer, const ScreenVertexAttributes& v0, const ScreenVertexAttributes& v1,
+    void drawTriangle(Framebuffer& buffer, const ScreenVertexAttributes& v0, const ScreenVertexAttributes& v1,
                       const ScreenVertexAttributes& v2, float area, const Scene::Lighting& lighting,
                       const Material& material, bool hasTexcoords = true) const;
 
-    void drawObject(FrameBuffer& buffer, const Object& object, const mat4& VP, const Scene::Lighting& lighting,
+    void drawObject(Framebuffer& buffer, const Object& object, const mat4& VP, const Scene::Lighting& lighting,
                     float zNear);
 
-    void normalizeDepth(FrameBuffer& buffer);
+    void normalizeDepth(Framebuffer& buffer);
 
    public:
     enum class RenderMode {
@@ -38,12 +47,12 @@ class Renderer {
     };
     RenderMode mode = RenderMode::Shaded;
 
-    Renderer() : vertexShader(defaultShaders::vertexShader), fragmentShader(defaultShaders::lambertShader) {
+    Rasterizer() : vertexShader(defaultShaders::vertexShader), fragmentShader(defaultShaders::lambertShader) {
         transformedNormals.reserve(1024);
         clipCoords.reserve(1024);
     }
     void setFragmentShader(FragmentShader fragmentShader) { this->fragmentShader = std::move(fragmentShader); }
-    void drawScene(FrameBuffer& buffer, const Scene& scene);
+    void drawScene(Framebuffer& buffer, const Scene& scene);
 
     void setRenderMode(RenderMode mode);
 };

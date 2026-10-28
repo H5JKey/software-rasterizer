@@ -1,11 +1,13 @@
-#pragma once
-#include <sys/types.h>
-
+module;
+#include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstddef>
 #include <type_traits>
 
-template <std::size_t N>
+export module math.vectors;
+
+export template <std::size_t N>
 struct VecStorage {
     static constexpr std::size_t dim = N;
     std::array<float, N> data;
@@ -60,7 +62,7 @@ struct VecStorage<4> {
     constexpr VecStorage() : x(0), y(0), z(0), w(0) {}
 };
 
-template <std::size_t N>
+export template <std::size_t N>
 struct Vec : VecStorage<N> {
     constexpr Vec() : VecStorage<N>() {}
 
@@ -106,7 +108,7 @@ struct Vec : VecStorage<N> {
     }
 };
 
-template <std::size_t N>
+export template <std::size_t N>
 constexpr Vec<N> min(const Vec<N>& v1, const Vec<N>& v2) {
     Vec<N> result;
     for (std::size_t idx = 0; idx < N; idx++) {
@@ -115,7 +117,7 @@ constexpr Vec<N> min(const Vec<N>& v1, const Vec<N>& v2) {
     return result;
 }
 
-template <std::size_t N>
+export template <std::size_t N>
 constexpr Vec<N> max(const Vec<N>& v1, const Vec<N>& v2) {
     Vec<N> result;
     for (std::size_t idx = 0; idx < N; idx++) {
@@ -124,14 +126,14 @@ constexpr Vec<N> max(const Vec<N>& v1, const Vec<N>& v2) {
     return result;
 }
 
-template <std::size_t N>
+export template <std::size_t N>
 constexpr float length(const Vec<N>& v) {
     float sum = 0;
     for (float val : v.data) sum += val * val;
     return sqrtf(sum);
 }
 
-template <std::size_t N>
+export template <std::size_t N>
 constexpr Vec<N> normalize(const Vec<N>& v) {
     Vec<N> result;
     float len = length(v);
@@ -143,22 +145,22 @@ constexpr Vec<N> normalize(const Vec<N>& v) {
     return result;
 }
 
-template <std::size_t N>
+export template <std::size_t N>
 constexpr float dot(const Vec<N>& a, const Vec<N>& b) {
     float result = 0;
     for (std::size_t idx = 0; idx < N; idx++) result += a[idx] * b[idx];
     return result;
 }
 
-using vec2 = Vec<2>;
-using vec3 = Vec<3>;
-using vec4 = Vec<4>;
-using Color = Vec<4>;
+export using vec2 = Vec<2>;
+export using vec3 = Vec<3>;
+export using vec4 = Vec<4>;
+export using Color = Vec<4>;
 
-constexpr float edgeFunction(const vec2& a, const vec2& b, const vec2& p) {
+export constexpr float edgeFunction(const vec2& a, const vec2& b, const vec2& p) {
     return (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x);
 }
 
-constexpr vec3 cross(const vec3& a, const vec3& b) {
+export constexpr vec3 cross(const vec3& a, const vec3& b) {
     return vec3(a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x);
 }
