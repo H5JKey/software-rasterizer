@@ -1,4 +1,7 @@
 module;
+#ifdef _WIN32
+#include <windows.h>
+#endif
 #include <GL/gl.h>
 #include <GLFW/glfw3.h>
 #include <imgui.h>
@@ -26,6 +29,7 @@ import model.material;
 import model.texture;
 import renderer.framebuffer;
 import renderer.rasterizer;
+import app.theme;
 
 namespace {
 
@@ -57,6 +61,28 @@ void App::handleEvents(GLFWwindow* window, int key, int /*scancode*/, int action
         if (key == GLFW_KEY_TAB && action == GLFW_PRESS) {
             app->showPanels = !app->showPanels;
         }
+        if (key == GLFW_KEY_EQUAL) {
+            app->scaleFactor += 0.1f;
+            if (app->scaleFactor > 3.f) {
+                app->scaleFactor = 3.0f;
+                return;
+            }
+            app->leftPanelWidth = app->baseLeftPanelWidth * app->scaleFactor;
+            app->rightPanelWidth = app->baseRightPanelWidth * app->scaleFactor;
+            app->bottomPanelHeight = app->baseBottomPanelHeight * app->scaleFactor;
+            app->topPanelHeight = app->baseTopPanelHeight * app->scaleFactor;
+        }
+        if (key == GLFW_KEY_MINUS) {
+            app->scaleFactor -= 0.1f;
+            if (app->scaleFactor < 0.5f) {
+                app->scaleFactor = 0.5f;
+                return;
+            }
+            app->leftPanelWidth = app->baseLeftPanelWidth * app->scaleFactor;
+            app->rightPanelWidth = app->baseRightPanelWidth * app->scaleFactor;
+            app->bottomPanelHeight = app->baseBottomPanelHeight * app->scaleFactor;
+            app->topPanelHeight = app->baseTopPanelHeight * app->scaleFactor;
+        }
     }
 }
 
@@ -87,7 +113,7 @@ App::App(std::size_t w, std::size_t h, const std::string& title)
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
-    ImGui::StyleColorsDark();
+    Theme::applyDarkTheme();
 
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     glfwSetKeyCallback(window, handleEvents);
@@ -133,8 +159,8 @@ void App::update(double elapsedTime) {
     int viewPortWidth = width;
     int viewPortHeight = height;
     if (showPanels) {
-        viewPortWidth -= static_cast<int>(topPanelHeight) + static_cast<int>(bottomPanelHeight);
-        viewPortHeight -= static_cast<int>(leftPanelWidth) + static_cast<int>(rightPanelWidth);
+        viewPortHeight -= (static_cast<int>(topPanelHeight) + static_cast<int>(bottomPanelHeight));
+        viewPortWidth -= (static_cast<int>(leftPanelWidth) + static_cast<int>(rightPanelWidth));
     }
     if (framebuffer.width != viewPortWidth || framebuffer.height != viewPortHeight) {
         framebuffer.resize(viewPortWidth, viewPortHeight);
@@ -171,27 +197,35 @@ void App::drawUI() {
     ImGui::NewFrame();
 
     ImGuiIO& io = ImGui::GetIO();
+    ImGuiStyle& style = ImGui::GetStyle();
+
+    style.FontScaleMain = 1.4 * scaleFactor;
+
     const float W = io.DisplaySize.x;
     const float H = io.DisplaySize.y;
     if (showPanels) {
         ImGuiWindowFlags panelFlags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
                                       ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse |
                                       ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoScrollbar;
+
         if (leftPanelWidth > 0.0) {
             ImGui::SetNextWindowPos(ImVec2(0, topPanelHeight));
-            ImGui::SetNextWindowSize(ImVec2(leftPanelWidth, H - topPanelHeight - bottomPanelHeight));
+            ImGui::SetNextWindowSize(ImVec2(leftPanelWidth, H - topPanelHeight));
             ImGui::Begin("##left", nullptr, panelFlags);
-            ImGui::SliderFloat("Fov", &scene.camera.fov, 0.01f, 3.14f, "%.2f rad");
+            ImGui::SeparatorText("Camera");
+            ImGui::SliderFloat("Fov", &scene.camera.fov, 0.05f, 3.14f, "%.2f");
+            ImGui::SliderFloat("ZNear", &scene.camera.zNear, 0.1, 20.0, "%.1f");
+            ImGui::SliderFloat("ZFar", &scene.camera.zFar, 20.0, 100.0f, "%.1f");
             ImGui::End();
         }
         if (rightPanelWidth > 0.0) {
             ImGui::SetNextWindowPos(ImVec2(W - rightPanelWidth, topPanelHeight));
-            ImGui::SetNextWindowSize(ImVec2(rightPanelWidth, H - topPanelHeight - bottomPanelHeight));
+            ImGui::SetNextWindowSize(ImVec2(rightPanelWidth, H - topPanelHeight));
             ImGui::Begin("##right", nullptr, panelFlags);
             ImGui::SeparatorText("Perfomance");
             ImGui::Text("%.1f FPS | %.2f ms", io.Framerate, 1000 / io.Framerate);
             ImGui::PlotLines("##FPSHistory", fpsHistory.data(), fpsHistory.size(), frame % fpsHistory.size(), nullptr,
-                             0.0f, 120.f, ImVec2(ImGui::GetContentRegionAvail().x, 80));
+                             0.0f, 240.f, ImVec2(ImGui::GetContentRegionAvail().x, 80));
 
             ImGui::SeparatorText("Scene Info");
 
@@ -208,8 +242,8 @@ void App::drawUI() {
             ImGui::End();
         }
         if (bottomPanelHeight > 0.0) {
-            ImGui::SetNextWindowPos(ImVec2(0, H - bottomPanelHeight));
-            ImGui::SetNextWindowSize(ImVec2(W, bottomPanelHeight));
+            ImGui::SetNextWindowPos(ImVec2(leftPanelWidth, H - bottomPanelHeight));
+            ImGui::SetNextWindowSize(ImVec2(W - leftPanelWidth - rightPanelWidth, bottomPanelHeight));
             ImGui::Begin("##bottom", nullptr, panelFlags);
             ImGui::End();
         }

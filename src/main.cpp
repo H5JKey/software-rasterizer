@@ -3,7 +3,7 @@
 import app;
 
 int main() try {
-    App app(800, 600, "Software Rasterizer");
+    App app(640, 480, "Software Rasterizer");
     app.run();
 } catch (const std::exception& e) {
     std::cerr << e.what() << std::endl;

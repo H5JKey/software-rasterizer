@@ -26,6 +26,10 @@ else()
     endif()
 endif()
 
+if (WIN32)
+    add_compile_definitions(NOMINMAX)
+endif()
+
 add_executable(raster
     src/utils/image-utils.cpp
     src/renderer/rasterizer.cpp
@@ -56,15 +60,17 @@ PUBLIC
         src/model/texture.cppm
         src/utils/image-utils.cppm
         src/app/app.cppm
+        src/app/theme.cppm
 )
 
 target_include_directories(raster PUBLIC
     external
 )
 
-find_package(OpenMP)
-
-target_link_libraries(raster PUBLIC  OpenMP::OpenMP_CXX)
+find_package(OpenMP QUIET)
+if (OpenMP_FOUND)
+    target_link_libraries(raster PUBLIC  OpenMP::OpenMP_CXX)
+endif()
 
 set(OpenGL_GL_PREFERENCE GLVND)
 find_package(OpenGL)

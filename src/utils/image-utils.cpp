@@ -60,14 +60,14 @@ void save_image_f32_png_rgb(const float* data, const std::filesystem::path& file
         }
     }
 
-    if (stbi_write_png(filename.c_str(), w, h, 4, data_rgba8.data(), 4 * w) < 0) {
+    if (stbi_write_png(filename.string().c_str(), w, h, 4, data_rgba8.data(), 4 * w) < 0) {
         throw std::runtime_error(std::format("Failed to save image {}", filename.string()));
     }
 }
 
 std::vector<float> load_image_f32_rgb(const std::filesystem::path& filename, int& w, int& h, float gamma) {
     int channels = 0;
-    stbi_uc* raw_data = stbi_load(filename.c_str(), &w, &h, &channels, 3);
+    stbi_uc* raw_data = stbi_load(filename.string().c_str(), &w, &h, &channels, 3);
     if (channels != 3 || raw_data == NULL || w <= 0 || h <= 0) {
         if (raw_data) stbi_image_free(raw_data);
         throw std::runtime_error(std::format("Failed to load mage {}", filename.string()));

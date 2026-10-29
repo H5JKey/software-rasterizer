@@ -115,7 +115,7 @@ Mesh Mesh::loadFromFile(const std::filesystem::path& filename) {
     size_t num_materials;
 
     unsigned int flags = TINYOBJ_FLAG_TRIANGULATE;
-    int ret = tinyobj_parse_obj(&attrib, &shapes, &num_shapes, &materials, &num_materials, filename.c_str(),
+    int ret = tinyobj_parse_obj(&attrib, &shapes, &num_shapes, &materials, &num_materials, filename.string().c_str(),
                                 get_file_data, NULL, flags);
     if (ret != TINYOBJ_SUCCESS) throw std::runtime_error(std::format("Failed to load mesh {}", filename.string()));
 

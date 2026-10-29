@@ -1,5 +1,7 @@
 module;
-
+#ifdef _WIN32
+#include <windows.h>
+#endif
 #include <GL/gl.h>
 #include <GLFW/glfw3.h>
 
@@ -17,10 +19,17 @@ import model.material;
 import model.texture;
 
 export class App {
-    static constexpr float leftPanelWidth = 150.0f;
-    static constexpr float rightPanelWidth = 150.0f;
-    static constexpr float bottomPanelHeight = 33.0f;
-    static constexpr float topPanelHeight = 33.0f;
+    static constexpr float baseLeftPanelWidth = 200.0f;
+    static constexpr float baseRightPanelWidth = 200.0f;
+    static constexpr float baseBottomPanelHeight = 33.0f;
+    static constexpr float baseTopPanelHeight = 33.0f;
+
+    float leftPanelWidth = baseLeftPanelWidth;
+    float rightPanelWidth = baseRightPanelWidth;
+    float bottomPanelHeight = baseBottomPanelHeight;
+    float topPanelHeight = baseTopPanelHeight;
+
+    float scaleFactor = 1.0f;
     bool showPanels = true;
 
     GLFWwindow* window;
