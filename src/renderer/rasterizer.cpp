@@ -144,7 +144,7 @@ void Rasterizer::drawObject(Framebuffer& buffer, const Object& object, const mat
 void Rasterizer::drawScene(Framebuffer& buffer, const Scene& scene) {
     const mat4 VP = scene.camera.getPerspectiveMatrix() * scene.camera.getLookAtMatrix();
 
-    for (const auto& object : scene.objects) {
+    for (const auto& object : scene.getAllObjects()) {
         drawObject(buffer, object, VP, scene.lighting, scene.camera.zNear);
     }
 

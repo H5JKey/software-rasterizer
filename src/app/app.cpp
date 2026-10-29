@@ -52,6 +52,12 @@ void App::handleEvents(GLFWwindow* window, int key, int /*scancode*/, int action
     if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
         glfwSetWindowShouldClose(window, GLFW_TRUE);
     }
+    App* app = static_cast<App*>(glfwGetWindowUserPointer(window));
+    if (app) {
+        if (key == GLFW_KEY_TAB && action == GLFW_PRESS) {
+            app->showPanels = !app->showPanels;
+        }
+    }
 }
 
 App::App(std::size_t w, std::size_t h, const std::string& title)
@@ -72,6 +78,7 @@ App::App(std::size_t w, std::size_t h, const std::string& title)
         glfwTerminate();
         throw std::runtime_error("Failed to create GLFW window");
     }
+    glfwSetWindowUserPointer(window, this);
 
     glfwMakeContextCurrent(window);
     glfwGetFramebufferSize(window, &this->width, &this->height);
@@ -93,9 +100,9 @@ void App::buildScene() {
     loadedTextures.emplace_back(Texture::loadFromFile("resources/textures/porcelain.jpg"));
     Material material{.baseColor = Color(1, 1, 1, 1), .texture = &loadedTextures[0]};
 
-    scene.objects.emplace_back(Mesh::loadFromFile("resources/Bunny.obj"), std::move(material));
-    scene.objects[0].addInstance();
-    scene.objects[0].updateTransform(0, scale(2, 2, 2));
+    scene.addObject(Object{Mesh::loadFromFile("resources/Bunny.obj"), std::move(material)});
+    scene.addObjectInstance(0);
+    scene.updateObjectTransform(0, 0, scale(2, 2, 2));
 }
 
 void App::run() {
@@ -107,7 +114,9 @@ void App::run() {
         glfwGetFramebufferSize(window, &width, &height);
 
         update(elapsedTime);
+
         drawUI();
+
         drawFrame();
 
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
@@ -116,23 +125,29 @@ void App::run() {
         double now = glfwGetTime();
         elapsedTime = now - prevTime;
         prevTime = now;
+        frame++;
     }
 }
 
 void App::update(double elapsedTime) {
-    const int viewPortWidth = width - (int)leftPanelWidth - (int)rightPanelWidth;
-    const int viewPortHeight = height - (int)topPanelHeight - (int)bottomPanelHeight;
-    scene.camera.aspect = static_cast<float>(viewPortWidth) / static_cast<float>(viewPortHeight);
-    if (framebuffer.width != viewPortWidth || framebuffer.height != viewPortHeight)
+    int viewPortWidth = width;
+    int viewPortHeight = height;
+    if (showPanels) {
+        viewPortWidth -= static_cast<int>(topPanelHeight) + static_cast<int>(bottomPanelHeight);
+        viewPortHeight -= static_cast<int>(leftPanelWidth) + static_cast<int>(rightPanelWidth);
+    }
+    if (framebuffer.width != viewPortWidth || framebuffer.height != viewPortHeight) {
         framebuffer.resize(viewPortWidth, viewPortHeight);
+        scene.camera.aspect = static_cast<float>(framebuffer.width) / static_cast<float>(framebuffer.height);
+    }
 }
 
 void App::drawFrame() {
     framebuffer.clear();
     rasterizer.drawScene(framebuffer, scene);
 
-    const int vx = static_cast<int>(leftPanelWidth);
-    const int vy = static_cast<int>(topPanelHeight);
+    const int vx = static_cast<int>(showPanels ? leftPanelWidth : 0);
+    const int vy = static_cast<int>(showPanels ? topPanelHeight : 0);
     const int vw = framebuffer.width;
     const int vh = framebuffer.height;
     if (vw <= 0 || vh <= 0) return;
@@ -155,46 +170,56 @@ void App::drawUI() {
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
 
-    ImGuiWindowFlags panelFlags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
-                                  ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoBringToFrontOnFocus |
-                                  ImGuiWindowFlags_NoScrollbar;
-
     ImGuiIO& io = ImGui::GetIO();
     const float W = io.DisplaySize.x;
     const float H = io.DisplaySize.y;
+    if (showPanels) {
+        ImGuiWindowFlags panelFlags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
+                                      ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse |
+                                      ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoScrollbar;
+        if (leftPanelWidth > 0.0) {
+            ImGui::SetNextWindowPos(ImVec2(0, topPanelHeight));
+            ImGui::SetNextWindowSize(ImVec2(leftPanelWidth, H - topPanelHeight - bottomPanelHeight));
+            ImGui::Begin("##left", nullptr, panelFlags);
+            ImGui::SliderFloat("Fov", &scene.camera.fov, 0.01f, 3.14f, "%.2f rad");
+            ImGui::End();
+        }
+        if (rightPanelWidth > 0.0) {
+            ImGui::SetNextWindowPos(ImVec2(W - rightPanelWidth, topPanelHeight));
+            ImGui::SetNextWindowSize(ImVec2(rightPanelWidth, H - topPanelHeight - bottomPanelHeight));
+            ImGui::Begin("##right", nullptr, panelFlags);
+            ImGui::SeparatorText("Perfomance");
+            ImGui::Text("%.1f FPS | %.2f ms", io.Framerate, 1000 / io.Framerate);
+            ImGui::PlotLines("##FPSHistory", fpsHistory.data(), fpsHistory.size(), frame % fpsHistory.size(), nullptr,
+                             0.0f, 120.f, ImVec2(ImGui::GetContentRegionAvail().x, 80));
 
-    if (topPanelHeight > 0.0) {
-        ImGui::SetNextWindowPos(ImVec2(0, 0));
-        ImGui::SetNextWindowSize(ImVec2(W, topPanelHeight));
-        ImGui::Begin("##top", nullptr, panelFlags);
-        ImGui::End();
-    }
-    if (leftPanelWidth > 0.0) {
-        ImGui::SetNextWindowPos(ImVec2(0, topPanelHeight));
-        ImGui::SetNextWindowSize(ImVec2(leftPanelWidth, H - topPanelHeight - bottomPanelHeight));
-        ImGui::Begin("##left", nullptr, panelFlags);
+            ImGui::SeparatorText("Scene Info");
 
-        ImGui::End();
-    }
-    if (rightPanelWidth > 0.0) {
-        ImGui::SetNextWindowPos(ImVec2(W - rightPanelWidth, topPanelHeight));
-        ImGui::SetNextWindowSize(ImVec2(rightPanelWidth, H - topPanelHeight - bottomPanelHeight));
-        ImGui::Begin("##right", nullptr, panelFlags);
-        ImGui::SliderFloat("Fov", &scene.camera.fov, 0.01f, 3.14f, "%.2f rad");
-        ImGui::End();
-    }
-    if (bottomPanelHeight > 0.0) {
-        ImGui::SetNextWindowPos(ImVec2(0, H - bottomPanelHeight));
-        ImGui::SetNextWindowSize(ImVec2(W, bottomPanelHeight));
-        ImGui::Begin("##bottom", nullptr, panelFlags);
+            ImGui::Text("Objects: %zu", scene.stats.objectsCount);
+            ImGui::Text("Instances: %zu", scene.stats.instancesCount);
+            ImGui::Text("Triangles: %zu", scene.stats.totalTrianglesCount);
 
-        ImGui::End();
+            ImGui::End();
+        }
+        if (topPanelHeight > 0.0) {
+            ImGui::SetNextWindowPos(ImVec2(0, 0));
+            ImGui::SetNextWindowSize(ImVec2(W, topPanelHeight));
+            ImGui::Begin("##top", nullptr, panelFlags);
+            ImGui::End();
+        }
+        if (bottomPanelHeight > 0.0) {
+            ImGui::SetNextWindowPos(ImVec2(0, H - bottomPanelHeight));
+            ImGui::SetNextWindowSize(ImVec2(W, bottomPanelHeight));
+            ImGui::Begin("##bottom", nullptr, panelFlags);
+            ImGui::End();
+        }
     }
-
     ImDrawList* dl = ImGui::GetForegroundDrawList();
-    std::string fpsString = std::format("{:.1f} FPS  |  {:.2f} ms", io.Framerate, 1000.0f / io.Framerate);
+    std::string fpsString = std::format("{:.0f} FPS", io.Framerate);
+    fpsHistory[frame % fpsHistory.size()] = io.Framerate;
     const ImVec2 textSize = ImGui::CalcTextSize(fpsString.c_str());
-    const ImVec2 pos(W - rightPanelWidth - 12.0f - textSize.x, topPanelHeight + 8.0f);
+    const ImVec2 pos(W - (showPanels ? rightPanelWidth : 0) - 12.0f - textSize.x,
+                     (showPanels ? topPanelHeight : 0) + 8.0f);
 
     dl->AddRectFilled(ImVec2(pos.x - 6, pos.y - 2), ImVec2(pos.x + textSize.x + 6, pos.y + textSize.y + 2),
                       IM_COL32(0, 0, 0, 140), 4.0f);
