@@ -40,6 +40,7 @@ add_executable(raster
     src/model/object.cpp
     src/app/app.cpp
     src/main.cpp
+    src/scene/camera.cpp
 )
 
 target_sources(raster
@@ -49,6 +50,7 @@ PUBLIC
         src/math/matrices.cppm
         src/math/vectors.cppm
         src/math/transforms.cppm
+        src/math/math.cppm
         src/renderer/rasterizer.cppm
         src/renderer/shaders.cppm
         src/scene/camera.cppm
@@ -61,6 +63,7 @@ PUBLIC
         src/utils/image-utils.cppm
         src/app/app.cppm
         src/app/theme.cppm
+
 )
 
 target_include_directories(raster PUBLIC

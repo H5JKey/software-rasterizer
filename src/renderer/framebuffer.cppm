@@ -6,7 +6,7 @@ module;
 
 export module renderer.framebuffer;
 
-import math.vectors;
+import math;
 
 export class Framebuffer {
    public:

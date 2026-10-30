@@ -17,6 +17,7 @@ import scene.camera;
 import model.mesh;
 import model.material;
 import model.texture;
+import math;
 
 export class App {
     static constexpr float baseLeftPanelWidth = 200.0f;
@@ -41,7 +42,14 @@ export class App {
     std::array<float, 512> fpsHistory;
     std::size_t frame = 0;
 
-    static void handleEvents(GLFWwindow* window, int key, int, int action, int);
+    struct MouseInfo {
+        double prevMousePosX, prevMousePosY;
+        bool firstMouse = true;
+        float sensetive = 0.004f;
+    } mouseInfo;
+
+    static void handleKeyboard(GLFWwindow* window, int key, int, int action, int);
+    static void handleCursor(GLFWwindow* window, double xpos, double ypos);
     void buildScene();
 
     void drawUI();

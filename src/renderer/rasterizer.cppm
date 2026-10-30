@@ -6,8 +6,7 @@ module;
 export module renderer.rasterizer;
 
 import renderer.framebuffer;
-import math.vectors;
-import math.matrices;
+import math;
 import scene.scene;
 import renderer.shaders;
 import model.object;

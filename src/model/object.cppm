@@ -4,9 +4,8 @@ module;
 
 export module model.object;
 import model.material;
-import math.matrices;
 import model.mesh;
-
+import math;
 
 export class Object {
     std::vector<mat4> modelMatrices;

@@ -1,6 +1,6 @@
 export module model.material;
 
-import math.vectors;
+import math;
 import model.texture;
 
 export struct Material {

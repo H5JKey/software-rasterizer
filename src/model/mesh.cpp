@@ -2,15 +2,15 @@ module;
 
 #include <algorithm>
 #include <cassert>
+#include <cerrno>
 #include <cstddef>
 #include <cstdint>
-#include <cerrno>
-#include <format>
-#include <stdexcept>
 #include <cstring>
 #include <filesystem>
+#include <format>
 #include <limits>
-#include <cstddef>
+#include <stdexcept>
+
 #include "tinyobj_loader_c.h"
 
 #ifdef _WIN64
@@ -26,9 +26,7 @@ module;
 #endif
 
 module model.mesh;
-import math.matrices;
-import math.vectors;
-import math.transforms;
+import math;
 
 static char* mmap_file(size_t* len, const char* filename) {
 #ifdef _WIN64

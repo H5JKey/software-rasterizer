@@ -3,8 +3,7 @@ module;
 #include <vector>
 
 export module model.mesh;
-import math.vectors;
-import math.transforms;
+import math;
 
 export struct AABB {
     vec3 min;

@@ -6,8 +6,7 @@ module;
 export module scene.scene;
 import scene.camera;
 import model.object;
-import math.vectors;
-import math.matrices;
+import math;
 
 export struct DirectionalLight {
     vec3 direction;

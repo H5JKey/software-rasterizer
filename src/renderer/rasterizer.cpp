@@ -9,8 +9,7 @@ module renderer.rasterizer;
 import renderer.framebuffer;
 import model.material;
 import model.object;
-import math.vectors;
-import math.matrices;
+import math;
 import scene.scene;
 import renderer.shaders;
 

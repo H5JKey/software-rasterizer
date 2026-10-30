@@ -9,8 +9,7 @@ export module renderer.shaders;
 
 import renderer.framebuffer;
 import model.material;
-import math.matrices;
-import math.vectors;
+import math;
 import scene.scene;
 
 /* Vertex shaders */

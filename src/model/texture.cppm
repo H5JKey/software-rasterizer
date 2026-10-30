@@ -6,7 +6,7 @@ module;
 
 export module model.texture;
 import utils.images;
-import math.vectors;
+import math;
 
 export class Texture {
     Texture(std::size_t width, std::size_t height, std::vector<Color> pixels)

@@ -5,7 +5,7 @@ module;
 #include <cstddef>
 #include <type_traits>
 
-export module math.vectors;
+export module math:vectors;
 
 export template <std::size_t N>
 struct VecStorage {
@@ -81,6 +81,13 @@ struct Vec : VecStorage<N> {
         return result;
     }
 
+    constexpr Vec<N>& operator+=(const Vec& other) {
+        for (std::size_t idx = 0; idx < N; idx++) {
+            this->data[idx] += other[idx];
+        }
+        return *this;
+    }
+
     constexpr Vec<N> operator-(const Vec& other) const {
         Vec<N> result;
         for (std::size_t idx = 0; idx < N; idx++) {
@@ -105,6 +112,15 @@ struct Vec : VecStorage<N> {
             result[idx] = this->data[idx] * scalar;
         }
         return result;
+    }
+
+    template <typename S>
+        requires(std::is_arithmetic_v<S>)
+    constexpr Vec<N>& operator*=(S scalar) {
+        for (std::size_t idx = 0; idx < N; idx++) {
+            this->data[idx] *= scalar;
+        }
+        return *this;
     }
 };
 
@@ -149,6 +165,13 @@ export template <std::size_t N>
 constexpr float dot(const Vec<N>& a, const Vec<N>& b) {
     float result = 0;
     for (std::size_t idx = 0; idx < N; idx++) result += a[idx] * b[idx];
+    return result;
+}
+
+export template <std::size_t N>
+constexpr Vec<N> compMul(const Vec<N>& a, const Vec<N>& b) {
+    Vec<N> result;
+    for (std::size_t idx = 0; idx < N; idx++) result[idx] = a[idx] * b[idx];
     return result;
 }
 

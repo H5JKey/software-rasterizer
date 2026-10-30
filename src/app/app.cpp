@@ -8,6 +8,7 @@ module;
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <format>
@@ -19,8 +20,7 @@ module;
 
 module app;
 
-import math.vectors;
-import math.transforms;
+import math;
 import scene.scene;
 import scene.camera;
 import model.object;
@@ -36,9 +36,7 @@ namespace {
 Camera makeCamera(int width, int height) {
     constexpr float pi = std::numbers::pi_v<float>;
     const vec3 eye(0.0f, 1.0f, 3.5f);
-    const vec3 target(0.0f, 0.0f, 0.0f);
-    const vec3 up(0.0f, 1.0f, 0.0f);
-    return Camera(eye, target, up, 90.0f * pi / 180.0f, static_cast<float>(width) / static_cast<float>(height), 0.01f,
+    return Camera(eye, 0.0f, 0.0f, 90.0f * pi / 180.0f, static_cast<float>(width) / static_cast<float>(height), 0.1f,
                   100.0f);
 }
 
@@ -52,16 +50,20 @@ Scene::Lighting makeLighting() {
 
 }  // namespace
 
-void App::handleEvents(GLFWwindow* window, int key, int /*scancode*/, int action, int /*mods*/) {
+void App::handleKeyboard(GLFWwindow* window, int key, int /*scancode*/, int action, int /*mods*/) {
+    ImGuiIO& io = ImGui::GetIO();
+    if (io.WantCaptureKeyboard && action != GLFW_PRESS) return;
     if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
         glfwSetWindowShouldClose(window, GLFW_TRUE);
+        return;
     }
     App* app = static_cast<App*>(glfwGetWindowUserPointer(window));
     if (app) {
         if (key == GLFW_KEY_TAB && action == GLFW_PRESS) {
             app->showPanels = !app->showPanels;
-        }
-        if (key == GLFW_KEY_EQUAL) {
+            glfwSetInputMode(window, GLFW_CURSOR, app->showPanels ? GLFW_CURSOR_NORMAL : GLFW_CURSOR_DISABLED);
+            app->mouseInfo.firstMouse = true;
+        } else if (key == GLFW_KEY_EQUAL) {
             app->scaleFactor += 0.1f;
             if (app->scaleFactor > 3.f) {
                 app->scaleFactor = 3.0f;
@@ -71,8 +73,7 @@ void App::handleEvents(GLFWwindow* window, int key, int /*scancode*/, int action
             app->rightPanelWidth = app->baseRightPanelWidth * app->scaleFactor;
             app->bottomPanelHeight = app->baseBottomPanelHeight * app->scaleFactor;
             app->topPanelHeight = app->baseTopPanelHeight * app->scaleFactor;
-        }
-        if (key == GLFW_KEY_MINUS) {
+        } else if (key == GLFW_KEY_MINUS) {
             app->scaleFactor -= 0.1f;
             if (app->scaleFactor < 0.5f) {
                 app->scaleFactor = 0.5f;
@@ -82,8 +83,43 @@ void App::handleEvents(GLFWwindow* window, int key, int /*scancode*/, int action
             app->rightPanelWidth = app->baseRightPanelWidth * app->scaleFactor;
             app->bottomPanelHeight = app->baseBottomPanelHeight * app->scaleFactor;
             app->topPanelHeight = app->baseTopPanelHeight * app->scaleFactor;
+        } else if (!app->showPanels) {
+            if (key == GLFW_KEY_W || key == GLFW_KEY_A || key == GLFW_KEY_S || key == GLFW_KEY_D) {
+                const float speed = 0.1f;
+                if (key == GLFW_KEY_W) {
+                    app->scene.camera.velocity += vec3(0, 0, -speed);
+                } else if (key == GLFW_KEY_S) {
+                    app->scene.camera.velocity += vec3(0, 0, speed);
+                } else if (key == GLFW_KEY_A) {
+                    app->scene.camera.velocity += vec3(-speed, 0, 0);
+                } else if (key == GLFW_KEY_D) {
+                    app->scene.camera.velocity += vec3(speed, 0, 0);
+                }
+            }
         }
     }
+}
+
+void App::handleCursor(GLFWwindow* window, double xpos, double ypos) {
+    App* app = static_cast<App*>(glfwGetWindowUserPointer(window));
+    if (!app || app->showPanels) return;
+
+    if (app->mouseInfo.firstMouse) {
+        app->mouseInfo.prevMousePosX = xpos;
+        app->mouseInfo.prevMousePosY = ypos;
+        app->mouseInfo.firstMouse = false;
+        return;
+    }
+    const float dx = static_cast<float>(xpos - app->mouseInfo.prevMousePosX);
+    const float dy = static_cast<float>(ypos - app->mouseInfo.prevMousePosY);
+    app->mouseInfo.prevMousePosX = xpos;
+    app->mouseInfo.prevMousePosY = ypos;
+
+    app->scene.camera.yaw -= app->mouseInfo.sensetive * dx;
+    app->scene.camera.pitch -= app->mouseInfo.sensetive * dy;
+
+    const float limit = std::numbers::pi_v<float> / 2.0f - 0.01f;
+    app->scene.camera.pitch = std::clamp(app->scene.camera.pitch, -limit, limit);
 }
 
 App::App(std::size_t w, std::size_t h, const std::string& title)
@@ -115,10 +151,11 @@ App::App(std::size_t w, std::size_t h, const std::string& title)
     ImGui::CreateContext();
     Theme::applyDarkTheme();
 
+    glfwSetKeyCallback(window, handleKeyboard);
+    glfwSetCursorPosCallback(window, handleCursor);
+    if (glfwRawMouseMotionSupported()) glfwSetInputMode(window, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
     ImGui_ImplGlfw_InitForOpenGL(window, true);
-    glfwSetKeyCallback(window, handleEvents);
     ImGui_ImplOpenGL3_Init(nullptr);
-
     buildScene();
 }
 
@@ -166,6 +203,7 @@ void App::update(double elapsedTime) {
         framebuffer.resize(viewPortWidth, viewPortHeight);
         scene.camera.aspect = static_cast<float>(framebuffer.width) / static_cast<float>(framebuffer.height);
     }
+    scene.camera.update(elapsedTime);
 }
 
 void App::drawFrame() {
@@ -222,7 +260,7 @@ void App::drawUI() {
             ImGui::SetNextWindowPos(ImVec2(W - rightPanelWidth, topPanelHeight));
             ImGui::SetNextWindowSize(ImVec2(rightPanelWidth, H - topPanelHeight));
             ImGui::Begin("##right", nullptr, panelFlags);
-            ImGui::SeparatorText("Perfomance");
+            ImGui::SeparatorText("Performance");
             ImGui::Text("%.1f FPS | %.2f ms", io.Framerate, 1000 / io.Framerate);
             ImGui::PlotLines("##FPSHistory", fpsHistory.data(), fpsHistory.size(), frame % fpsHistory.size(), nullptr,
                              0.0f, 240.f, ImVec2(ImGui::GetContentRegionAvail().x, 80));

@@ -7,8 +7,8 @@ module;
 module model.object;
 
 import model.material;
-import math.matrices;
 import model.mesh;
+import math;
 
 Object::Object(Mesh mesh, Material material) : mesh(std::move(mesh)), material(std::move(material)) {}
 

@@ -1,9 +1,9 @@
 module;
 #include <cmath>
-export module math.transforms;
+export module math:transforms;
 
-import math.vectors;
-import math.matrices;
+import :vectors;
+import :matrices;
 
 export constexpr mat4 translation(float offsetX, float offsetY, float offsetZ) {
     return mat4(1, 0, 0, offsetX, 0, 1, 0, offsetY, 0, 0, 1, offsetZ, 0, 0, 0, 1);
@@ -38,8 +38,8 @@ export constexpr mat4 scale(float xFactor, float yFactor, float zFactor) {
 
 export constexpr mat4 scale(const vec3& factors) { return scale(factors.x, factors.y, factors.z); }
 
-export constexpr mat4 lookAt(const vec3& eye, const vec3& target, const vec3& up) {
-    vec3 zc = normalize(eye - target);
+export constexpr mat4 lookAt(const vec3& eye, const vec3& forward, const vec3& up) {
+    vec3 zc = normalize(forward);
     vec3 xc = normalize(cross(up, zc));
     vec3 yc = cross(zc, xc);
 

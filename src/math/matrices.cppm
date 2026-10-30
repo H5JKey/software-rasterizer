@@ -5,8 +5,8 @@ module;
 #include <stdexcept>
 #include <utility>
 
-export module math.matrices;
-import math.vectors;
+export module math:matrices;
+import :vectors;
 
 export template <std::size_t N>
 struct Matrix {
