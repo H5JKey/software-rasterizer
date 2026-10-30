@@ -163,7 +163,7 @@ void App::buildScene() {
     loadedTextures.emplace_back(Texture::loadFromFile("resources/textures/porcelain.jpg"));
     Material material{.baseColor = Color(1, 1, 1, 1), .texture = &loadedTextures[0]};
 
-    scene.addObject(Object{Mesh::loadFromFile("resources/Bunny.obj"), std::move(material)});
+    scene.addObject(Object{Mesh::loadFromFile("resources/cornell_box.obj"), std::move(material)});
     scene.addObjectInstance(0);
     scene.updateObjectTransform(0, 0, scale(2, 2, 2));
 }
@@ -250,6 +250,19 @@ void App::drawUI() {
             ImGui::SetNextWindowPos(ImVec2(0, topPanelHeight));
             ImGui::SetNextWindowSize(ImVec2(leftPanelWidth, H - topPanelHeight));
             ImGui::Begin("##left", nullptr, panelFlags);
+            ImGui::SeparatorText("Modes");
+
+            int modeInt = static_cast<int>(rasterizer.mode);
+            bool changed = false;
+            changed |= ImGui::RadioButton("Lambert", &modeInt, 0);
+            changed |= ImGui::RadioButton("Unlit", &modeInt, 1);
+            changed |= ImGui::RadioButton("Depth", &modeInt, 2);
+            changed |= ImGui::RadioButton("Normals", &modeInt, 3);
+            changed |= ImGui::RadioButton("Texcoords", &modeInt, 4);
+            if (changed) {
+                rasterizer.setRenderMode(static_cast<Rasterizer::RenderMode>(modeInt));
+            }
+
             ImGui::SeparatorText("Camera");
             ImGui::SliderFloat("Fov", &scene.camera.fov, 0.05f, 3.14f, "%.2f");
             ImGui::SliderFloat("ZNear", &scene.camera.zNear, 0.1, 20.0, "%.1f");
