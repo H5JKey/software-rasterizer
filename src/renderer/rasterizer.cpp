@@ -14,8 +14,9 @@ import scene.scene;
 import renderer.shaders;
 
 void Rasterizer::drawTriangle(Framebuffer& buffer, const ScreenVertexAttributes& v0, const ScreenVertexAttributes& v1,
-                              const ScreenVertexAttributes& v2, float edge012, const Scene::Lighting& lighting,
-                              const Material& material, bool hasTexcoords) const {
+                              const ScreenVertexAttributes& v2, float edge012,
+                              const shaders::FrameUniforms& frameUniforms,
+                              const shaders::DrawUniforms& drawUniforms, std::size_t triangleId) const {
     const float width = static_cast<float>(buffer.width);
     const float height = static_cast<float>(buffer.height);
 
@@ -27,8 +28,9 @@ void Rasterizer::drawTriangle(Framebuffer& buffer, const ScreenVertexAttributes&
     bboxMin.x = std::clamp(std::floor(bboxMin.x), 0.0f, width);
     bboxMin.y = std::clamp(std::floor(bboxMin.y), 0.0f, height);
 
-    const shaders::FragmentShaderUniforms uniforms{
-        .lighting = &lighting, .material = &material, .hasTexcoords = hasTexcoords};
+    const auto& pipeline = currentPipeline();
+    const bool depthOnly = pipeline.depthOnly;
+    const bool hasFragmentShaders = !pipeline.fragmentShaders.empty();
 
     for (int py = static_cast<int>(bboxMin.y); py < static_cast<int>(bboxMax.y); ++py) {
         for (int px = static_cast<int>(bboxMin.x); px < static_cast<int>(bboxMax.x); ++px) {
@@ -48,7 +50,7 @@ void Rasterizer::drawTriangle(Framebuffer& buffer, const ScreenVertexAttributes&
 
             std::size_t idx = static_cast<std::size_t>(py) * buffer.width + static_cast<std::size_t>(px);
 
-            if (mode == RenderMode::Depth) {
+            if (depthOnly) {
 #pragma omp critical
                 if (depth < buffer.depth[idx]) {
                     buffer.depth[idx] = depth;
@@ -56,6 +58,7 @@ void Rasterizer::drawTriangle(Framebuffer& buffer, const ScreenVertexAttributes&
                 continue;
             }
             if (depth >= buffer.depth[idx]) continue;
+            if (!hasFragmentShaders) continue;
 
             float q0 = u * v0.invW;
             float q1 = v * v1.invW;
@@ -65,17 +68,22 @@ void Rasterizer::drawTriangle(Framebuffer& buffer, const ScreenVertexAttributes&
             float p1 = q1 * s;
             float p2 = q2 * s;
 
-            vec3 normal = normalize(v0.normal * p0 + v1.normal * p1 + v2.normal * p2);
-            vec2 uv;
-            if (hasTexcoords) uv = v0.texcoord * p0 + v1.texcoord * p1 + v2.texcoord * p2;
-            Color pixelColor =
-                fragmentShader(shaders::FragmentShaderInput{.normal = normal, .uv = uv, .depth = depth}, uniforms)
-                    .color;
+            shaders::ShaderContext context{
+                .worldPosition = v0.worldPosition * p0 + v1.worldPosition * p1 + v2.worldPosition * p2,
+                .normal = normalize(v0.normal * p0 + v1.normal * p1 + v2.normal * p2),
+                .uv = v0.texcoord * p0 + v1.texcoord * p1 + v2.texcoord * p2,
+                .depth = depth,
+                .triangleId = triangleId,
+            };
+
+            for (const shaders::FragmentShader stage : pipeline.fragmentShaders) {
+                stage(context, frameUniforms, drawUniforms);
+            }
 
 #pragma omp critical
             {
                 if (depth < buffer.depth[idx]) {
-                    buffer.pixels[idx] = pixelColor;
+                    buffer.pixels[idx] = context.color;
 
                     buffer.depth[idx] = depth;
                 }
@@ -84,26 +92,37 @@ void Rasterizer::drawTriangle(Framebuffer& buffer, const ScreenVertexAttributes&
     }
 }
 
-void Rasterizer::drawObject(Framebuffer& buffer, const Object& object, const mat4& VP, const Scene::Lighting& lighting,
+void Rasterizer::drawObject(Framebuffer& buffer, const Object& object, const shaders::FrameUniforms& frameUniforms,
                             float zNear) {
     const Mesh& mesh = object.mesh;
     const bool hasTexcoords = mesh.texcoords.size() == mesh.vertices.size();
 
     clipCoords.resize(mesh.vertices.size());
     transformedNormals.resize(mesh.vertices.size());
+    transformedWorldPositions.resize(mesh.vertices.size());
+
+    const auto& modelMatrices = object.getModel();
+    const auto& inverseTransposeModelMatrices = object.getInverseTransposeModel();
 
     for (std::size_t instance_id = 0; instance_id < object.instancesCount(); ++instance_id) {
-        const shaders::VertexShaderUniforms uniforms{
-            .VP = &VP, .M = &object.getModel(), .inverseTransposeM = &object.getInverseTransposeModel()};
+        const shaders::DrawUniforms drawUniforms{.M = &modelMatrices[instance_id],
+                                                 .inverseTransposeM = &inverseTransposeModelMatrices[instance_id],
+                                                 .material = &object.material,
+                                                 .instanceId = instance_id,
+                                                 .hasTexcoords = hasTexcoords};
 
 #pragma omp parallel for
         for (std::size_t i = 0; i < mesh.vertices.size(); i++) {
-            const auto output = shaders::vertexShader(
+            const auto output = currentPipeline().vertexShader(
                 shaders::VertexShaderInput{
-                    .position = mesh.vertices[i], .normal = mesh.normals[i], .instance_id = instance_id},
-                uniforms);
-            clipCoords[i] = output.position;
+                    .position = mesh.vertices[i],
+                    .normal = mesh.normals[i],
+                    .uv = hasTexcoords ? mesh.texcoords[i] : vec2(),
+                },
+                frameUniforms, drawUniforms);
+            clipCoords[i] = output.clipPosition;
             transformedNormals[i] = output.normal;
+            transformedWorldPositions[i] = output.worldPosition;
         }
 #pragma omp parallel for
         for (std::size_t tri_idx = 0; tri_idx < mesh.indices.size() / 3; ++tri_idx) {
@@ -113,7 +132,7 @@ void Rasterizer::drawObject(Framebuffer& buffer, const Object& object, const mat
 
             if (clipCoords[i0].w < zNear || clipCoords[i1].w < zNear || clipCoords[i2].w < zNear) continue;
 
-            ScreenVertexAttributes attributes[3];
+            ScreenVertexAttributes attributes[3]{};
             const std::size_t vertexIndices[] = {i0, i1, i2};
             for (int i = 0; i < 3; ++i) {
                 const std::size_t vertexIndex = vertexIndices[i];
@@ -125,76 +144,23 @@ void Rasterizer::drawObject(Framebuffer& buffer, const Object& object, const mat
                 attributes[i].depth = vertex.z * invW;
                 attributes[i].invW = invW;
                 attributes[i].normal = transformedNormals[vertexIndex];
+                attributes[i].worldPosition = transformedWorldPositions[vertexIndex];
                 if (hasTexcoords) attributes[i].texcoord = mesh.texcoords[vertexIndex];
             }
 
             const float area = edgeFunction(attributes[0].position, attributes[1].position, attributes[2].position);
             if (area < 1e-6f) continue;  // Degenerate triangle or back face.
 
-            drawTriangle(buffer, attributes[0], attributes[1], attributes[2], area, lighting, object.material,
-                         hasTexcoords);
+            drawTriangle(buffer, attributes[0], attributes[1], attributes[2], area, frameUniforms, drawUniforms,
+                         tri_idx);
         }
     }
 }
 
-void Rasterizer::drawScene(Framebuffer& buffer, const Scene& scene) {
-    const mat4 VP = scene.camera.getPerspectiveMatrix() * scene.camera.getLookAtMatrix();
+void Rasterizer::runScreenStages(Framebuffer& buffer, const shaders::FrameUniforms& frameUniforms) {
+    const auto& pipeline = currentPipeline();
+    if (pipeline.screenShaders.empty()) return;
 
-    for (const auto& object : scene.getAllObjects()) {
-        drawObject(buffer, object, VP, scene.lighting, scene.camera.zNear);
-    }
-
-    if (mode == RenderMode::Shaded) {
-        drawSkybox(buffer, VP, scene.skybox, scene.camera.getEye());
-    } else if (mode == RenderMode::Depth) {
-        normalizeDepth(buffer);
-    }
-}
-
-void Rasterizer::setRenderMode(RenderMode mode) {
-    this->mode = mode;
-    switch (mode) {
-        case RenderMode::Unlit:
-            fragmentShader = shaders::unlitShader;
-            break;
-        case RenderMode::Shaded:
-            fragmentShader = shaders::lambertShader;
-            break;
-        case RenderMode::Normals:
-            fragmentShader = shaders::normalsShader;
-            break;
-        case RenderMode::Depth:
-            /* No need in fragment shader. Doing all bussiness in post processing stage*/
-            break;
-        case RenderMode::Texcoords:
-            fragmentShader = shaders::texcoordsShader;
-            break;
-    }
-}
-
-void Rasterizer::drawSkybox(Framebuffer& buffer, const mat4& VP, const Skybox& skybox,
-                            const vec3& cameraPosition) {
-    const mat4 invVP = VP.inverse();
-
-    shaders::SkyboxShaderUniforms uniforms{
-        .skybox = &skybox, .inversedVP = &invVP, .cameraPosition = &cameraPosition};
-
-    for (std::size_t y = 0; y < buffer.height; y++) {
-        for (std::size_t x = 0; x < buffer.width; x++) {
-            const std::size_t idx = y * buffer.width + x;
-            if (!std::isfinite(buffer.depth[idx])) {
-                const float ndcX = 2.0f * (float(x) + 0.5f) / float(buffer.width) - 1.0f;
-                const float ndcY = 2.0f * (float(y) + 0.5f) / float(buffer.height) - 1.0f;
-
-                buffer.pixels[idx] =
-                    shaders::skyboxShader(shaders::SkyboxShaderInput{.screenPosition = vec2(ndcX, ndcY)}, uniforms)
-                        .color;
-            }
-        }
-    }
-}
-
-void Rasterizer::normalizeDepth(Framebuffer& buffer) {
     float minDepth = std::numeric_limits<float>::infinity();
     float maxDepth = -std::numeric_limits<float>::infinity();
     for (float depth : buffer.depth) {
@@ -203,10 +169,48 @@ void Rasterizer::normalizeDepth(Framebuffer& buffer) {
             maxDepth = std::max(maxDepth, depth);
         }
     }
-    shaders::FragmentShaderUniforms uniforms{.minDepth = minDepth, .maxDepth = maxDepth};
+
 #pragma omp parallel for
     for (std::size_t idx = 0; idx < buffer.depth.size(); idx++) {
-        buffer.pixels[idx] =
-            shaders::normalizeDepthColors(shaders::FragmentShaderInput{.depth = buffer.depth[idx]}, uniforms).color;
+        const int x = static_cast<int>(idx % static_cast<std::size_t>(buffer.width));
+        const int y = static_cast<int>(idx / static_cast<std::size_t>(buffer.width));
+
+        shaders::ScreenShaderInput input{
+            .x = x,
+            .y = y,
+            .ndcX = 2.0f * (static_cast<float>(x) + 0.5f) / static_cast<float>(buffer.width) - 1.0f,
+            .ndcY = 2.0f * (static_cast<float>(y) + 0.5f) / static_cast<float>(buffer.height) - 1.0f,
+            .depth = buffer.depth[idx],
+            .color = buffer.pixels[idx],
+            .minDepth = minDepth,
+            .maxDepth = maxDepth,
+        };
+
+        for (const shaders::ScreenShader stage : pipeline.screenShaders) {
+            input.color = stage(input, frameUniforms);
+        }
+
+        buffer.pixels[idx] = input.color;
     }
+}
+
+void Rasterizer::drawScene(Framebuffer& buffer, const Scene& scene) {
+    const mat4 VP = scene.camera.getPerspectiveMatrix() * scene.camera.getLookAtMatrix();
+    const mat4 inverseVP = VP.inverse();
+    const vec3 cameraPosition = scene.camera.getEye();
+
+    const shaders::FrameUniforms frameUniforms{.VP = &VP,
+                                               .inverseVP = &inverseVP,
+                                               .cameraPosition = &cameraPosition,
+                                               .lighting = &scene.lighting,
+                                               .skybox = &scene.skybox,
+                                               .zNear = scene.camera.zNear,
+                                               .zFar = scene.camera.zFar,
+                                               .time = 0.0f};
+
+    for (const auto& object : scene.getAllObjects()) {
+        drawObject(buffer, object, frameUniforms, scene.camera.zNear);
+    }
+
+    runScreenStages(buffer, frameUniforms);
 }

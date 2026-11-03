@@ -1,6 +1,6 @@
 module;
 
-#include <utility>
+#include <cstddef>
 #include <vector>
 
 export module renderer.rasterizer;
@@ -16,43 +16,40 @@ import scene.skybox;
 
 export class Rasterizer {
     std::vector<vec3> transformedNormals;
+    std::vector<vec3> transformedWorldPositions;
     std::vector<vec4> clipCoords;
     struct ScreenVertexAttributes {
         vec2 position;
         float depth;
         vec3 normal;
+        vec3 worldPosition;
         float invW;
         vec2 texcoord;
     };
 
-    shaders::FragmentShader fragmentShader;
+    std::size_t passIndex = 0;
+
+    const shaders::Pipeline& currentPipeline() const { return shaders::passes[passIndex]; }
 
     void drawTriangle(Framebuffer& buffer, const ScreenVertexAttributes& v0, const ScreenVertexAttributes& v1,
-                      const ScreenVertexAttributes& v2, float area, const Scene::Lighting& lighting,
-                      const Material& material, bool hasTexcoords = true) const;
+                      const ScreenVertexAttributes& v2, float area, const shaders::FrameUniforms& frameUniforms,
+                      const shaders::DrawUniforms& drawUniforms, std::size_t triangleId) const;
 
-    void drawObject(Framebuffer& buffer, const Object& object, const mat4& VP, const Scene::Lighting& lighting,
+    void drawObject(Framebuffer& buffer, const Object& object, const shaders::FrameUniforms& frameUniforms,
                     float zNear);
 
-    void normalizeDepth(Framebuffer& buffer);
-
-    void drawSkybox(Framebuffer& buffer, const mat4& VP, const Skybox& skybox, const vec3& cameraPosition);
+    void runScreenStages(Framebuffer& buffer, const shaders::FrameUniforms& frameUniforms);
 
    public:
-    enum class RenderMode {
-        Shaded = 0,
-        Unlit = 1,
-        Depth = 2,
-        Normals = 3,
-        Texcoords = 4,
-    };
-    RenderMode mode = RenderMode::Shaded;
-
-    Rasterizer() : fragmentShader(shaders::lambertShader) {
+    Rasterizer() {
         transformedNormals.reserve(1024);
+        transformedWorldPositions.reserve(1024);
         clipCoords.reserve(1024);
     }
+
     void drawScene(Framebuffer& buffer, const Scene& scene);
 
-    void setRenderMode(RenderMode mode);
+    std::size_t getPassIndex() const { return passIndex; }
+
+    void setPass(std::size_t index) { passIndex = index < shaders::passesCount ? index : 0; }
 };
