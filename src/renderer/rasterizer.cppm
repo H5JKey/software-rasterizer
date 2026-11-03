@@ -36,7 +36,7 @@ export class Rasterizer {
 
     void normalizeDepth(Framebuffer& buffer);
 
-    void drawSkybox(Framebuffer& buffer, const mat4& VP, const Skybox& skybox);
+    void drawSkybox(Framebuffer& buffer, const mat4& VP, const Skybox& skybox, const vec3& cameraPosition);
 
    public:
     enum class RenderMode {

@@ -71,6 +71,7 @@ target_include_directories(raster PUBLIC
     external
 )
 
+
 find_package(OpenMP QUIET)
 if (OpenMP_FOUND)
     target_link_libraries(raster PUBLIC  OpenMP::OpenMP_CXX)

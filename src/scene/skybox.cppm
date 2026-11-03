@@ -62,7 +62,6 @@ export class Skybox {
             }
         }
 
-        /*сдвигаем uv на пол текстеля, чтобы избежать видимых границ*/
         const float halfX = 0.5f / static_cast<float>(tex->width);
         const float halfY = 0.5f / static_cast<float>(tex->height);
 

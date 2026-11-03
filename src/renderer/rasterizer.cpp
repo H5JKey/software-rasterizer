@@ -145,7 +145,7 @@ void Rasterizer::drawScene(Framebuffer& buffer, const Scene& scene) {
     }
 
     if (mode == RenderMode::Shaded) {
-        drawSkybox(buffer, VP, scene.skybox);
+        drawSkybox(buffer, VP, scene.skybox, scene.camera.getEye());
     } else if (mode == RenderMode::Depth) {
         normalizeDepth(buffer);
     }
@@ -172,10 +172,12 @@ void Rasterizer::setRenderMode(RenderMode mode) {
     }
 }
 
-void Rasterizer::drawSkybox(Framebuffer& buffer, const mat4& VP, const Skybox& skybox) {
+void Rasterizer::drawSkybox(Framebuffer& buffer, const mat4& VP, const Skybox& skybox,
+                            const vec3& cameraPosition) {
     const mat4 invVP = VP.inverse();
 
-    shaders::SkyboxShaderUniforms uniforms{.skybox = &skybox, .inversedVP = &invVP};
+    shaders::SkyboxShaderUniforms uniforms{
+        .skybox = &skybox, .inversedVP = &invVP, .cameraPosition = &cameraPosition};
 
     for (std::size_t y = 0; y < buffer.height; y++) {
         for (std::size_t x = 0; x < buffer.width; x++) {

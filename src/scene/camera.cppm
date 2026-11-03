@@ -31,6 +31,7 @@ export class Camera {
 
     constexpr mat4 getLookAtMatrix() const { return lookAt(eye, forward, up); }
     constexpr mat4 getPerspectiveMatrix() const { return perspective(fov, aspect, zNear, zFar); }
+    constexpr vec3 getEye() const { return eye; }
 
     void update(double dt);
 };

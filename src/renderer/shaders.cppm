@@ -60,6 +60,7 @@ using FragmentShader = std::function<FragmentShaderOutput(const FragmentShaderIn
 struct SkyboxShaderUniforms {
     const Skybox* skybox;
     const mat4* inversedVP;
+    const vec3* cameraPosition;
 };
 
 struct SkyboxShaderInput {
@@ -149,9 +150,11 @@ inline const SkyboxShader skyboxShader = [](const SkyboxShaderInput& input,
                                             const SkyboxShaderUniforms& uniforms) -> SkyboxShaderOutput {
     SkyboxShaderOutput output;
     const auto& inversedVP = *uniforms.inversedVP;
-    vec4 tmp = inversedVP * vec4(input.screenPosition.x, input.screenPosition.y, 1.0, 1.0);
-    vec3 rayDir = vec3(tmp.x, tmp.y, tmp.z);
-    rayDir = normalize(rayDir);
+
+    vec4 world = inversedVP * vec4(input.screenPosition.x, input.screenPosition.y, 1.0f, 1.0f);
+    world *= 1.0f / world.w;
+
+    const vec3 rayDir = vec3(world.x, world.y, world.z) - *uniforms.cameraPosition;
     output.color = (*uniforms.skybox).sample(rayDir);
     return output;
 };
