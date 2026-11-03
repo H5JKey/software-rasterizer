@@ -12,6 +12,7 @@ import renderer.shaders;
 import model.object;
 import model.material;
 import model.mesh;
+import scene.skybox;
 
 export class Rasterizer {
     std::vector<vec3> transformedNormals;
@@ -24,8 +25,7 @@ export class Rasterizer {
         vec2 texcoord;
     };
 
-    VertexShader vertexShader;
-    FragmentShader fragmentShader;
+    shaders::FragmentShader fragmentShader;
 
     void drawTriangle(Framebuffer& buffer, const ScreenVertexAttributes& v0, const ScreenVertexAttributes& v1,
                       const ScreenVertexAttributes& v2, float area, const Scene::Lighting& lighting,
@@ -35,6 +35,8 @@ export class Rasterizer {
                     float zNear);
 
     void normalizeDepth(Framebuffer& buffer);
+
+    void drawSkybox(Framebuffer& buffer, const mat4& VP, const Skybox& skybox);
 
    public:
     enum class RenderMode {
@@ -46,11 +48,10 @@ export class Rasterizer {
     };
     RenderMode mode = RenderMode::Shaded;
 
-    Rasterizer() : vertexShader(defaultShaders::vertexShader), fragmentShader(defaultShaders::lambertShader) {
+    Rasterizer() : fragmentShader(shaders::lambertShader) {
         transformedNormals.reserve(1024);
         clipCoords.reserve(1024);
     }
-    void setFragmentShader(FragmentShader fragmentShader) { this->fragmentShader = std::move(fragmentShader); }
     void drawScene(Framebuffer& buffer, const Scene& scene);
 
     void setRenderMode(RenderMode mode);

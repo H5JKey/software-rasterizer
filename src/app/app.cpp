@@ -29,6 +29,7 @@ import model.material;
 import model.texture;
 import renderer.framebuffer;
 import renderer.rasterizer;
+import scene.skybox;
 import app.theme;
 
 namespace {
@@ -126,7 +127,10 @@ App::App(std::size_t w, std::size_t h, const std::string& title)
     : width(static_cast<int>(w)),
       height(static_cast<int>(h)),
       framebuffer(0, 0),
-      scene(makeCamera(width, height), makeLighting()) {
+      scene(makeCamera(width, height), makeLighting(),
+            Skybox("resources/textures/skybox/hills_lf.png", "resources/textures/skybox/hills_rt.png",
+                   "resources/textures/skybox/hills_ft.png", "resources/textures/skybox/hills_bk.png",
+                   "resources/textures/skybox/hills_up.jpg", "resources/textures/skybox/hills_dn.png")) {
     glfwSetErrorCallback(
         [](int error, const char* description) { std::println(stderr, "GLFW error {}: {}", error, description); });
 

@@ -11,91 +11,91 @@ import renderer.framebuffer;
 import model.material;
 import math;
 import scene.scene;
+import scene.skybox;
+
+export namespace shaders {
 
 /* Vertex shaders */
 
-export struct VertexShaderUniforms {
-    const mat4& VP;
-    const std::vector<mat4>& M;
-    const std::vector<mat3>& inverseTransposeM;
+struct VertexShaderUniforms {
+    const mat4* VP;
+    const std::vector<mat4>* M;
+    const std::vector<mat3>* inverseTransposeM;
 };
 
-export struct VertexShaderInput {
+struct VertexShaderInput {
     vec3 position;
     vec3 normal;
     std::size_t instance_id;
 };
 
-export struct VertexShaderOutput {
+struct VertexShaderOutput {
     vec4 position;
     vec3 normal;
 };
 
-export using VertexShader = std::function<VertexShaderOutput(const VertexShaderInput&, const VertexShaderUniforms&)>;
+using VertexShader = std::function<VertexShaderOutput(const VertexShaderInput&, const VertexShaderUniforms&)>;
 
 /* Fragment shaders */
 
-export struct FragmentShaderUniforms {
-    const Scene::Lighting& lighting;
-    const Material& material;
-};
-
-export struct FragmentShaderInput {
-    vec3 normal;
-    vec2 uv;
-    float depth;
+struct FragmentShaderUniforms {
+    const Scene::Lighting* lighting;
+    const Material* material;
+    float minDepth, maxDepth;
     bool hasTexcoords;
 };
 
-export struct FragmentShaderOutput {
+struct FragmentShaderInput {
+    vec3 normal;
+    vec2 uv;
+    float depth;
+};
+
+struct FragmentShaderOutput {
     Color color;
 };
 
-export using FragmentShader =
-    std::function<FragmentShaderOutput(const FragmentShaderInput&, const FragmentShaderUniforms&)>;
+using FragmentShader = std::function<FragmentShaderOutput(const FragmentShaderInput&, const FragmentShaderUniforms&)>;
 
-/* Post processing shaders */
-
-export struct PostProcessingShaderUniforms {
-    const Framebuffer& framebuffer;
-    float minDepth, maxDepth;
+struct SkyboxShaderUniforms {
+    const Skybox* skybox;
+    const mat4* inversedVP;
 };
 
-export struct PostProcessingShaderInput {
-    std::size_t pixel_idx;
+struct SkyboxShaderInput {
+    vec2 screenPosition;
 };
 
-export struct PostProcessingShaderOutput {
+struct SkyboxShaderOutput {
     Color color;
 };
 
-export using PostProcessingShader =
-    std::function<PostProcessingShaderOutput(const PostProcessingShaderInput&, const PostProcessingShaderUniforms&)>;
-
-/* Default shaders*/
-
-export namespace defaultShaders {
+using SkyboxShader = std::function<SkyboxShaderOutput(const SkyboxShaderInput&, const SkyboxShaderUniforms&)>;
 
 inline const VertexShader vertexShader = [](const VertexShaderInput& input,
                                             const VertexShaderUniforms& uniforms) -> VertexShaderOutput {
     VertexShaderOutput output;
-    output.position =
-        uniforms.VP * uniforms.M[input.instance_id] * vec4(input.position.x, input.position.y, input.position.z, 1.0);
-    output.normal = uniforms.inverseTransposeM[input.instance_id] * input.normal;
+    const auto& VP = *uniforms.VP;
+    const auto& M = *uniforms.M;
+    const auto& inverseTransposeM = *uniforms.inverseTransposeM;
+    output.position = VP * M[input.instance_id] * vec4(input.position.x, input.position.y, input.position.z, 1.0);
+    output.normal = inverseTransposeM[input.instance_id] * input.normal;
     return output;
 };
 
 inline const FragmentShader lambertShader = [](const FragmentShaderInput& input,
                                                const FragmentShaderUniforms& uniforms) -> FragmentShaderOutput {
     FragmentShaderOutput output;
-    if (input.hasTexcoords && uniforms.material.texture) {
-        output.color = uniforms.material.texture->sample(input.uv);
+    const auto& material = *uniforms.material;
+    const auto& lighting = *uniforms.lighting;
+
+    if (uniforms.hasTexcoords && material.texture) {
+        output.color = material.texture->sample(input.uv);
     } else {
-        output.color = uniforms.material.baseColor;
+        output.color = material.baseColor;
     }
     Color factor =
-        (uniforms.lighting.ambientColor +
-         uniforms.lighting.light.color * std::max(0.f, dot(input.normal, uniforms.lighting.light.direction)));
+        (lighting.ambientColor + lighting.light.color * std::max(0.f, dot(input.normal, lighting.light.direction)));
     output.color.r = output.color.r * factor.r;
     output.color.g = output.color.g * factor.g;
     output.color.b = output.color.b * factor.b;
@@ -105,10 +105,11 @@ inline const FragmentShader lambertShader = [](const FragmentShaderInput& input,
 inline const FragmentShader unlitShader = [](const FragmentShaderInput& input,
                                              const FragmentShaderUniforms& uniforms) -> FragmentShaderOutput {
     FragmentShaderOutput output;
-    if (input.hasTexcoords && uniforms.material.texture) {
-        output.color = uniforms.material.texture->sample(input.uv);
+    const auto& material = *uniforms.material;
+    if (uniforms.hasTexcoords && material.texture) {
+        output.color = material.texture->sample(input.uv);
     } else {
-        output.color = uniforms.material.baseColor;
+        output.color = material.baseColor;
     }
     return output;
 };
@@ -123,18 +124,17 @@ inline const FragmentShader normalsShader = [](const FragmentShaderInput& input,
 inline const FragmentShader texcoordsShader = [](const FragmentShaderInput& input,
                                                  const FragmentShaderUniforms& uniforms) -> FragmentShaderOutput {
     FragmentShaderOutput output;
-    if (input.hasTexcoords)
+    if (uniforms.hasTexcoords)
         output.color = Color(input.uv.x, input.uv.y, 0.0f, 1.0f);
     else
         output.color = Color(0, 0, 0, 1);
     return output;
 };
 
-inline const PostProcessingShader normalizeDepthColors =
-    [](const PostProcessingShaderInput& input,
-       const PostProcessingShaderUniforms& uniforms) -> PostProcessingShaderOutput {
-    PostProcessingShaderOutput output;
-    float gray = uniforms.framebuffer.depth[input.pixel_idx];
+inline const FragmentShader normalizeDepthColors = [](const FragmentShaderInput& input,
+                                                      const FragmentShaderUniforms& uniforms) -> FragmentShaderOutput {
+    FragmentShaderOutput output;
+    float gray = input.depth;
     if (uniforms.minDepth < uniforms.maxDepth && std::isfinite(gray)) {
         float denum = 1.0f / (uniforms.maxDepth - uniforms.minDepth);
         gray = (gray - uniforms.minDepth) * denum;
@@ -145,4 +145,14 @@ inline const PostProcessingShader normalizeDepthColors =
     return output;
 };
 
-}  // namespace defaultShaders
+inline const SkyboxShader skyboxShader = [](const SkyboxShaderInput& input,
+                                            const SkyboxShaderUniforms& uniforms) -> SkyboxShaderOutput {
+    SkyboxShaderOutput output;
+    const auto& inversedVP = *uniforms.inversedVP;
+    vec4 tmp = inversedVP * vec4(input.screenPosition.x, input.screenPosition.y, 1.0, 1.0);
+    vec3 rayDir = vec3(tmp.x, tmp.y, tmp.z);
+    rayDir = normalize(rayDir);
+    output.color = (*uniforms.skybox).sample(rayDir);
+    return output;
+};
+}  // namespace shaders

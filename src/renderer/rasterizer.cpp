@@ -27,10 +27,8 @@ void Rasterizer::drawTriangle(Framebuffer& buffer, const ScreenVertexAttributes&
     bboxMin.x = std::clamp(std::floor(bboxMin.x), 0.0f, width);
     bboxMin.y = std::clamp(std::floor(bboxMin.y), 0.0f, height);
 
-    const FragmentShaderUniforms uniforms{
-        .lighting = lighting,
-        .material = material,
-    };
+    const shaders::FragmentShaderUniforms uniforms{
+        .lighting = &lighting, .material = &material, .hasTexcoords = hasTexcoords};
 
     for (int py = static_cast<int>(bboxMin.y); py < static_cast<int>(bboxMax.y); ++py) {
         for (int px = static_cast<int>(bboxMin.x); px < static_cast<int>(bboxMax.x); ++px) {
@@ -71,9 +69,7 @@ void Rasterizer::drawTriangle(Framebuffer& buffer, const ScreenVertexAttributes&
             vec2 uv;
             if (hasTexcoords) uv = v0.texcoord * p0 + v1.texcoord * p1 + v2.texcoord * p2;
             Color pixelColor =
-                fragmentShader(
-                    FragmentShaderInput{.normal = normal, .uv = uv, .depth = depth, .hasTexcoords = hasTexcoords},
-                    uniforms)
+                fragmentShader(shaders::FragmentShaderInput{.normal = normal, .uv = uv, .depth = depth}, uniforms)
                     .color;
 
 #pragma omp critical
@@ -97,13 +93,14 @@ void Rasterizer::drawObject(Framebuffer& buffer, const Object& object, const mat
     transformedNormals.resize(mesh.vertices.size());
 
     for (std::size_t instance_id = 0; instance_id < object.instancesCount(); ++instance_id) {
-        const VertexShaderUniforms uniforms{
-            .VP = VP, .M = object.getModel(), .inverseTransposeM = object.getInverseTransposeModel()};
+        const shaders::VertexShaderUniforms uniforms{
+            .VP = &VP, .M = &object.getModel(), .inverseTransposeM = &object.getInverseTransposeModel()};
 
 #pragma omp parallel for
         for (std::size_t i = 0; i < mesh.vertices.size(); i++) {
-            const auto output = vertexShader(
-                VertexShaderInput{.position = mesh.vertices[i], .normal = mesh.normals[i], .instance_id = instance_id},
+            const auto output = shaders::vertexShader(
+                shaders::VertexShaderInput{
+                    .position = mesh.vertices[i], .normal = mesh.normals[i], .instance_id = instance_id},
                 uniforms);
             clipCoords[i] = output.position;
             transformedNormals[i] = output.normal;
@@ -147,7 +144,9 @@ void Rasterizer::drawScene(Framebuffer& buffer, const Scene& scene) {
         drawObject(buffer, object, VP, scene.lighting, scene.camera.zNear);
     }
 
-    if (mode == RenderMode::Depth) {
+    if (mode == RenderMode::Shaded) {
+        drawSkybox(buffer, VP, scene.skybox);
+    } else if (mode == RenderMode::Depth) {
         normalizeDepth(buffer);
     }
 }
@@ -156,20 +155,40 @@ void Rasterizer::setRenderMode(RenderMode mode) {
     this->mode = mode;
     switch (mode) {
         case RenderMode::Unlit:
-            fragmentShader = defaultShaders::unlitShader;
+            fragmentShader = shaders::unlitShader;
             break;
         case RenderMode::Shaded:
-            fragmentShader = defaultShaders::lambertShader;
+            fragmentShader = shaders::lambertShader;
             break;
         case RenderMode::Normals:
-            fragmentShader = defaultShaders::normalsShader;
+            fragmentShader = shaders::normalsShader;
             break;
         case RenderMode::Depth:
             /* No need in fragment shader. Doing all bussiness in post processing stage*/
             break;
         case RenderMode::Texcoords:
-            fragmentShader = defaultShaders::texcoordsShader;
+            fragmentShader = shaders::texcoordsShader;
             break;
+    }
+}
+
+void Rasterizer::drawSkybox(Framebuffer& buffer, const mat4& VP, const Skybox& skybox) {
+    const mat4 invVP = VP.inverse();
+
+    shaders::SkyboxShaderUniforms uniforms{.skybox = &skybox, .inversedVP = &invVP};
+
+    for (std::size_t y = 0; y < buffer.height; y++) {
+        for (std::size_t x = 0; x < buffer.width; x++) {
+            const std::size_t idx = y * buffer.width + x;
+            if (!std::isfinite(buffer.depth[idx])) {
+                const float ndcX = 2.0f * (float(x) + 0.5f) / float(buffer.width) - 1.0f;
+                const float ndcY = 2.0f * (float(y) + 0.5f) / float(buffer.height) - 1.0f;
+
+                buffer.pixels[idx] =
+                    shaders::skyboxShader(shaders::SkyboxShaderInput{.screenPosition = vec2(ndcX, ndcY)}, uniforms)
+                        .color;
+            }
+        }
     }
 }
 
@@ -182,10 +201,10 @@ void Rasterizer::normalizeDepth(Framebuffer& buffer) {
             maxDepth = std::max(maxDepth, depth);
         }
     }
-    PostProcessingShaderUniforms uniforms{.framebuffer = buffer, .minDepth = minDepth, .maxDepth = maxDepth};
+    shaders::FragmentShaderUniforms uniforms{.minDepth = minDepth, .maxDepth = maxDepth};
 #pragma omp parallel for
     for (std::size_t idx = 0; idx < buffer.depth.size(); idx++) {
         buffer.pixels[idx] =
-            defaultShaders::normalizeDepthColors(PostProcessingShaderInput{.pixel_idx = idx}, uniforms).color;
+            shaders::normalizeDepthColors(shaders::FragmentShaderInput{.depth = buffer.depth[idx]}, uniforms).color;
     }
 }

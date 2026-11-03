@@ -6,6 +6,7 @@ module;
 export module scene.scene;
 import scene.camera;
 import model.object;
+import scene.skybox;
 import math;
 
 export struct DirectionalLight {
@@ -22,11 +23,13 @@ export class Scene {
         std::size_t instancesCount = 0;
         std::size_t totalTrianglesCount = 0;
     } stats;
-    Camera camera;
+
     struct Lighting {
         DirectionalLight light;
         Color ambientColor;
     };
+    Skybox skybox;
+    Camera camera;
 
     void addObject(Object object) {
         objects.emplace_back(std::move(object));
@@ -55,6 +58,9 @@ export class Scene {
     const std::vector<Object>& getAllObjects() const { return objects; }
 
     Lighting lighting;
-    Scene(const Camera& camera, const Lighting& lighting, std::vector<Object> objects = {})
-        : objects(std::move(objects)), camera(camera), lighting(lighting) {}
+    Scene(Camera camera, Lighting lighting, Skybox skybox, std::vector<Object> objects = {})
+        : objects(std::move(objects)),
+          skybox(std::move(skybox)),
+          camera(std::move(camera)),
+          lighting(std::move(lighting)) {}
 };

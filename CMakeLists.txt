@@ -63,6 +63,7 @@ PUBLIC
         src/utils/image-utils.cppm
         src/app/app.cppm
         src/app/theme.cppm
+        src/scene/skybox.cppm
 
 )
 

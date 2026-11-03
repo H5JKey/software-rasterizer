@@ -16,12 +16,12 @@ export class Camera {
     }
 
    public:
+    float pitch, yaw;
     float fov;
     float aspect;
     float zNear;
     float zFar;
 
-    float pitch, yaw;
     vec3 velocity;
 
     constexpr Camera(vec3 eye, float pitch, float yaw, float fov, float aspect, float zNear, float zFar)
