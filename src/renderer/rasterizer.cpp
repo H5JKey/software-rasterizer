@@ -16,7 +16,7 @@ import renderer.shaders;
 void Rasterizer::drawTriangle(Framebuffer& buffer, const ScreenVertexAttributes& v0, const ScreenVertexAttributes& v1,
                               const ScreenVertexAttributes& v2, float edge012,
                               const shaders::FrameUniforms& frameUniforms,
-                              const shaders::DrawUniforms& drawUniforms, std::size_t triangleId) const {
+                              const shaders::DrawUniforms& drawUniforms) const {
     const float width = static_cast<float>(buffer.width);
     const float height = static_cast<float>(buffer.height);
 
@@ -29,7 +29,6 @@ void Rasterizer::drawTriangle(Framebuffer& buffer, const ScreenVertexAttributes&
     bboxMin.y = std::clamp(std::floor(bboxMin.y), 0.0f, height);
 
     const auto& pipeline = currentPipeline();
-    const bool depthOnly = pipeline.depthOnly;
     const bool hasFragmentShaders = !pipeline.fragmentShaders.empty();
 
     for (int py = static_cast<int>(bboxMin.y); py < static_cast<int>(bboxMax.y); ++py) {
@@ -50,14 +49,11 @@ void Rasterizer::drawTriangle(Framebuffer& buffer, const ScreenVertexAttributes&
 
             std::size_t idx = static_cast<std::size_t>(py) * buffer.width + static_cast<std::size_t>(px);
 
-            if (depthOnly) {
-#pragma omp critical
-                if (depth < buffer.depth[idx]) {
-                    buffer.depth[idx] = depth;
-                }
+            if (depth < buffer.depth[idx])
+                buffer.depth[idx] = depth;
+            else
                 continue;
-            }
-            if (depth >= buffer.depth[idx]) continue;
+
             if (!hasFragmentShaders) continue;
 
             float q0 = u * v0.invW;
@@ -73,21 +69,13 @@ void Rasterizer::drawTriangle(Framebuffer& buffer, const ScreenVertexAttributes&
                 .normal = normalize(v0.normal * p0 + v1.normal * p1 + v2.normal * p2),
                 .uv = v0.texcoord * p0 + v1.texcoord * p1 + v2.texcoord * p2,
                 .depth = depth,
-                .triangleId = triangleId,
             };
 
             for (const shaders::FragmentShader stage : pipeline.fragmentShaders) {
                 stage(context, frameUniforms, drawUniforms);
             }
 
-#pragma omp critical
-            {
-                if (depth < buffer.depth[idx]) {
-                    buffer.pixels[idx] = context.color;
-
-                    buffer.depth[idx] = depth;
-                }
-            }
+            buffer.pixels[idx] = context.color;
         }
     }
 }
@@ -103,6 +91,28 @@ void Rasterizer::drawObject(Framebuffer& buffer, const Object& object, const sha
 
     const auto& modelMatrices = object.getModel();
     const auto& inverseTransposeModelMatrices = object.getInverseTransposeModel();
+
+    struct ClipVertex {
+        vec4 position;
+        vec3 worldPosition;
+        vec3 normal;
+        vec2 texcoord;
+    };
+
+    auto texcoordAt = [&](std::size_t index) { return hasTexcoords ? mesh.texcoords[index] : vec2(); };
+
+    auto toScreen = [&](const ClipVertex& clip) -> ScreenVertexAttributes {
+        ScreenVertexAttributes output{};
+        float invW = 1.f / clip.position.w;
+        output.position.x = (clip.position.x * invW + 1.0f) * 0.5f * static_cast<float>(buffer.width);
+        output.position.y = (clip.position.y * invW + 1.0f) * 0.5f * static_cast<float>(buffer.height);
+        output.depth = clip.position.z * invW;
+        output.invW = invW;
+        output.normal = clip.normal;
+        output.worldPosition = clip.worldPosition;
+        output.texcoord = clip.texcoord;
+        return output;
+    };
 
     for (std::size_t instance_id = 0; instance_id < object.instancesCount(); ++instance_id) {
         const shaders::DrawUniforms drawUniforms{.M = &modelMatrices[instance_id],
@@ -124,35 +134,77 @@ void Rasterizer::drawObject(Framebuffer& buffer, const Object& object, const sha
             transformedNormals[i] = output.normal;
             transformedWorldPositions[i] = output.worldPosition;
         }
-#pragma omp parallel for
+
         for (std::size_t tri_idx = 0; tri_idx < mesh.indices.size() / 3; ++tri_idx) {
             const std::size_t i0 = static_cast<std::size_t>(mesh.indices[3 * tri_idx]);
             const std::size_t i1 = static_cast<std::size_t>(mesh.indices[3 * tri_idx + 1]);
             const std::size_t i2 = static_cast<std::size_t>(mesh.indices[3 * tri_idx + 2]);
-
-            if (clipCoords[i0].w < zNear || clipCoords[i1].w < zNear || clipCoords[i2].w < zNear) continue;
-
-            ScreenVertexAttributes attributes[3]{};
             const std::size_t vertexIndices[] = {i0, i1, i2};
-            for (int i = 0; i < 3; ++i) {
-                const std::size_t vertexIndex = vertexIndices[i];
-                const auto& vertex = clipCoords[vertexIndex];
-                const float invW = 1.0f / vertex.w;
+            if (clipCoords[i0].w < zNear || clipCoords[i1].w < zNear || clipCoords[i2].w < zNear) {
+                ClipVertex polygon[4];
+                std::size_t polygonSize = 0;
+                for (int i = 0; i < 3; i++) {
+                    const std::size_t a = vertexIndices[i];
+                    const std::size_t b = vertexIndices[(i + 1) % 3];
+                    const float da = clipCoords[a].w + clipCoords[a].z;
+                    const float db = clipCoords[b].w + +clipCoords[b].z;
 
-                attributes[i].position.x = (vertex.x * invW + 1.0f) * 0.5f * static_cast<float>(buffer.width);
-                attributes[i].position.y = (vertex.y * invW + 1.0f) * 0.5f * static_cast<float>(buffer.height);
-                attributes[i].depth = vertex.z * invW;
-                attributes[i].invW = invW;
-                attributes[i].normal = transformedNormals[vertexIndex];
-                attributes[i].worldPosition = transformedWorldPositions[vertexIndex];
-                if (hasTexcoords) attributes[i].texcoord = mesh.texcoords[vertexIndex];
+                    if (da >= 0) {
+                        polygon[polygonSize++] = ClipVertex{.position = clipCoords[a],
+                                                            .worldPosition = transformedWorldPositions[a],
+                                                            .normal = transformedNormals[a],
+                                                            .texcoord = texcoordAt(a)};
+                    }
+                    if ((da >= 0) != (db >= 0)) {
+                        const float t = da / (da - db);
+                        polygon[polygonSize++] = ClipVertex{
+                            .position = clipCoords[a] + (clipCoords[b] - clipCoords[a]) * t,
+                            .worldPosition = transformedWorldPositions[a] +
+                                             (transformedWorldPositions[b] - transformedWorldPositions[a]) * t,
+                            .normal = transformedNormals[a] + (transformedNormals[b] - transformedNormals[a]) * t,
+                            .texcoord = texcoordAt(a) + (texcoordAt(b) - texcoordAt(a)) * t,
+                        };
+                    }
+                }
+
+                if (polygonSize < 3) continue;
+
+                for (std::size_t i = 1; i + 1 < polygonSize; ++i) {
+                    const ScreenVertexAttributes attributes[3] = {
+                        toScreen(polygon[0]),
+                        toScreen(polygon[i]),
+                        toScreen(polygon[i + 1]),
+                    };
+
+                    const float area =
+                        edgeFunction(attributes[0].position, attributes[1].position, attributes[2].position);
+                    if (area < 1e-6f) continue;
+
+                    drawTriangle(buffer, attributes[0], attributes[1], attributes[2], area, frameUniforms,
+                                 drawUniforms);
+                }
+                continue;
+            } else {
+                const ScreenVertexAttributes attributes[3] = {
+                    toScreen(ClipVertex{.position = clipCoords[i0],
+                                        .worldPosition = transformedWorldPositions[i0],
+                                        .normal = transformedNormals[i0],
+                                        .texcoord = texcoordAt(i0)}),
+                    toScreen(ClipVertex{.position = clipCoords[i1],
+                                        .worldPosition = transformedWorldPositions[i1],
+                                        .normal = transformedNormals[i1],
+                                        .texcoord = texcoordAt(i1)}),
+                    toScreen(ClipVertex{.position = clipCoords[i2],
+                                        .worldPosition = transformedWorldPositions[i2],
+                                        .normal = transformedNormals[i2],
+                                        .texcoord = texcoordAt(i2)}),
+                };
+
+                const float area = edgeFunction(attributes[0].position, attributes[1].position, attributes[2].position);
+                if (area < 1e-6f) continue;  // Degenerate triangle or back face.
+
+                drawTriangle(buffer, attributes[0], attributes[1], attributes[2], area, frameUniforms, drawUniforms);
             }
-
-            const float area = edgeFunction(attributes[0].position, attributes[1].position, attributes[2].position);
-            if (area < 1e-6f) continue;  // Degenerate triangle or back face.
-
-            drawTriangle(buffer, attributes[0], attributes[1], attributes[2], area, frameUniforms, drawUniforms,
-                         tri_idx);
         }
     }
 }
@@ -205,8 +257,7 @@ void Rasterizer::drawScene(Framebuffer& buffer, const Scene& scene) {
                                                .lighting = &scene.lighting,
                                                .skybox = &scene.skybox,
                                                .zNear = scene.camera.zNear,
-                                               .zFar = scene.camera.zFar,
-                                               .time = 0.0f};
+                                               .zFar = scene.camera.zFar};
 
     for (const auto& object : scene.getAllObjects()) {
         drawObject(buffer, object, frameUniforms, scene.camera.zNear);

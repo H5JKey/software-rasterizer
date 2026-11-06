@@ -77,7 +77,6 @@ struct ShaderContext {
     vec3 normal;
     vec2 uv;
     float depth;
-    std::size_t triangleId;
     Color color = Color(0, 0, 0, 1);
 };
 
@@ -86,7 +85,7 @@ using FragmentShader = void (*)(ShaderContext&, const FrameUniforms&, const Draw
 inline constexpr FragmentShader lambertShader = [](ShaderContext& context, const FrameUniforms& frame,
                                                    const DrawUniforms& draw) {
     const auto& material = *draw.material;
-    Color color = (draw.hasTexcoords && material.texture) ? material.texture->sample(context.uv) : material.baseColor;
+    Color color = context.color;
 
     const auto& lighting = *frame.lighting;
     const Color factor =
@@ -105,8 +104,8 @@ inline constexpr FragmentShader unlitShader = [](ShaderContext& context, const F
 
 inline constexpr FragmentShader normalsShader = [](ShaderContext& context, const FrameUniforms& /*frame*/,
                                                    const DrawUniforms& /*draw*/) {
-    context.color = Color((context.normal.x + 1.f) / 2.f, (context.normal.y + 1.f) / 2.f,
-                          (context.normal.z + 1.f) / 2.f, 1.f);
+    context.color =
+        Color((context.normal.x + 1.f) / 2.f, (context.normal.y + 1.f) / 2.f, (context.normal.z + 1.f) / 2.f, 1.f);
 };
 
 inline constexpr FragmentShader texcoordsShader = [](ShaderContext& context, const FrameUniforms& /*frame*/,
@@ -161,10 +160,9 @@ struct Pipeline {
     VertexShader vertexShader = defaultVertexShader;
     std::span<const FragmentShader> fragmentShaders{};
     std::span<const ScreenShader> screenShaders{};
-    bool depthOnly = false;
 };
 
-inline constexpr FragmentShader lambertStages[] = {lambertShader};
+inline constexpr FragmentShader lambertStages[] = {unlitShader, lambertShader};
 inline constexpr FragmentShader unlitStages[] = {unlitShader};
 inline constexpr FragmentShader normalsStages[] = {normalsShader};
 inline constexpr FragmentShader texcoordsStages[] = {texcoordsShader};
@@ -173,17 +171,12 @@ inline constexpr ScreenShader skyboxStages[] = {skyboxShader};
 inline constexpr ScreenShader depthStages[] = {normalizeDepthShader};
 
 inline constexpr Pipeline passes[] = {
-    // Чтобы добавить режим, опишите стадии выше и добавьте сюда строку:
-    // растеризатор и интерфейс подхватят пайплайн автоматически.
     {.name = "Lambert",
      .vertexShader = defaultVertexShader,
      .fragmentShaders = lambertStages,
      .screenShaders = skyboxStages},
     {.name = "Unlit", .vertexShader = defaultVertexShader, .fragmentShaders = unlitStages},
-    {.name = "Depth",
-     .vertexShader = defaultVertexShader,
-     .screenShaders = depthStages,
-     .depthOnly = true},
+    {.name = "Depth", .vertexShader = defaultVertexShader, .screenShaders = depthStages},
     {.name = "Normals", .vertexShader = defaultVertexShader, .fragmentShaders = normalsStages},
     {.name = "Texcoords", .vertexShader = defaultVertexShader, .fragmentShaders = texcoordsStages},
 };

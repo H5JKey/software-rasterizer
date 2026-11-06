@@ -33,7 +33,7 @@ export class Rasterizer {
 
     void drawTriangle(Framebuffer& buffer, const ScreenVertexAttributes& v0, const ScreenVertexAttributes& v1,
                       const ScreenVertexAttributes& v2, float area, const shaders::FrameUniforms& frameUniforms,
-                      const shaders::DrawUniforms& drawUniforms, std::size_t triangleId) const;
+                      const shaders::DrawUniforms& drawUniforms) const;
 
     void drawObject(Framebuffer& buffer, const Object& object, const shaders::FrameUniforms& frameUniforms,
                     float zNear);

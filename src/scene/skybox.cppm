@@ -62,12 +62,6 @@ export class Skybox {
             }
         }
 
-        const float halfX = 0.5f / static_cast<float>(tex->width);
-        const float halfY = 0.5f / static_cast<float>(tex->height);
-
-        uv.x = std::clamp(uv.x, halfX, 1.0f - halfX);
-        uv.y = std::clamp(uv.y, halfY, 1.0f - halfY);
-
         return tex->sample(uv);
     }
 };
