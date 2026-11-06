@@ -2,8 +2,9 @@ module;
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
-#include <functional>
-#include <vector>
+#include <iterator>
+#include <span>
+#include <string_view>
 
 export module renderer.shaders;
 
@@ -15,147 +16,178 @@ import scene.skybox;
 
 export namespace shaders {
 
-/* Vertex shaders */
+/* Uniforms */
 
-struct VertexShaderUniforms {
-    const mat4* VP;
-    const std::vector<mat4>* M;
-    const std::vector<mat3>* inverseTransposeM;
+struct FrameUniforms {
+    const mat4* VP = nullptr;
+    const mat4* inverseVP = nullptr;
+    const vec3* cameraPosition = nullptr;
+    const Scene::Lighting* lighting = nullptr;
+    const Skybox* skybox = nullptr;
+    float zNear = 0.0f;
+    float zFar = 1.0f;
+    float time = 0.0f;
 };
+
+struct DrawUniforms {
+    const mat4* M = nullptr;
+    const mat3* inverseTransposeM = nullptr;
+    const Material* material = nullptr;
+    std::size_t instanceId = 0;
+    bool hasTexcoords = false;
+};
+
+/* Vertex stage */
 
 struct VertexShaderInput {
     vec3 position;
     vec3 normal;
-    std::size_t instance_id;
+    vec2 uv;
 };
 
 struct VertexShaderOutput {
-    vec4 position;
+    vec4 clipPosition;
+    vec3 worldPosition;
     vec3 normal;
+    vec2 uv;
 };
 
-using VertexShader = std::function<VertexShaderOutput(const VertexShaderInput&, const VertexShaderUniforms&)>;
+using VertexShader = VertexShaderOutput (*)(const VertexShaderInput&, const FrameUniforms&, const DrawUniforms&);
 
-/* Fragment shaders */
-
-struct FragmentShaderUniforms {
-    const Scene::Lighting* lighting;
-    const Material* material;
-    float minDepth, maxDepth;
-    bool hasTexcoords;
+inline constexpr VertexShader defaultVertexShader = [](const VertexShaderInput& input, const FrameUniforms& frame,
+                                                       const DrawUniforms& draw) -> VertexShaderOutput {
+    const vec4 world = (*draw.M) * vec4(input.position.x, input.position.y, input.position.z, 1.0f);
+    return {
+        .clipPosition = (*frame.VP) * world,
+        .worldPosition = vec3(world.x, world.y, world.z),
+        .normal = (*draw.inverseTransposeM) * input.normal,
+        .uv = input.uv,
+    };
 };
 
-struct FragmentShaderInput {
+/* Fragment stages
+ *
+ * Стадии выполняются по порядку и накапливают результат в context.color.
+ * Поэтому пайплайн может состоять из нескольких шейдеров: например,
+ * base shading, затем туман, затем гамма-коррекция.
+ */
+
+struct ShaderContext {
+    vec3 worldPosition;
     vec3 normal;
     vec2 uv;
     float depth;
+    std::size_t triangleId;
+    Color color = Color(0, 0, 0, 1);
 };
 
-struct FragmentShaderOutput {
+using FragmentShader = void (*)(ShaderContext&, const FrameUniforms&, const DrawUniforms&);
+
+inline constexpr FragmentShader lambertShader = [](ShaderContext& context, const FrameUniforms& frame,
+                                                   const DrawUniforms& draw) {
+    const auto& material = *draw.material;
+    Color color = (draw.hasTexcoords && material.texture) ? material.texture->sample(context.uv) : material.baseColor;
+
+    const auto& lighting = *frame.lighting;
+    const Color factor =
+        lighting.ambientColor + lighting.light.color * std::max(0.f, dot(context.normal, lighting.light.direction));
+    color.r *= factor.r;
+    color.g *= factor.g;
+    color.b *= factor.b;
+    context.color = color;
+};
+
+inline constexpr FragmentShader unlitShader = [](ShaderContext& context, const FrameUniforms& /*frame*/,
+                                                 const DrawUniforms& draw) {
+    const auto& material = *draw.material;
+    context.color = (draw.hasTexcoords && material.texture) ? material.texture->sample(context.uv) : material.baseColor;
+};
+
+inline constexpr FragmentShader normalsShader = [](ShaderContext& context, const FrameUniforms& /*frame*/,
+                                                   const DrawUniforms& /*draw*/) {
+    context.color = Color((context.normal.x + 1.f) / 2.f, (context.normal.y + 1.f) / 2.f,
+                          (context.normal.z + 1.f) / 2.f, 1.f);
+};
+
+inline constexpr FragmentShader texcoordsShader = [](ShaderContext& context, const FrameUniforms& /*frame*/,
+                                                     const DrawUniforms& draw) {
+    context.color = draw.hasTexcoords ? Color(context.uv.x, context.uv.y, 0.0f, 1.0f) : Color(0, 0, 0, 1);
+};
+
+/* Screen stages
+ *
+ * Выполняются после геометрии для каждого пикселя буфера. Стадии получают
+ * текущий цвет и могут его заменить. Скайбокс и визуализация глубины —
+ * такие же стадии, поэтому отдельных типов шейдеров для них не нужно.
+ */
+
+struct ScreenShaderInput {
+    int x;
+    int y;
+    float ndcX;
+    float ndcY;
+    float depth;
     Color color;
+    float minDepth;
+    float maxDepth;
 };
 
-using FragmentShader = std::function<FragmentShaderOutput(const FragmentShaderInput&, const FragmentShaderUniforms&)>;
+using ScreenShader = Color (*)(const ScreenShaderInput&, const FrameUniforms&);
 
-struct SkyboxShaderUniforms {
-    const Skybox* skybox;
-    const mat4* inversedVP;
-    const vec3* cameraPosition;
-};
+inline constexpr ScreenShader skyboxShader = [](const ScreenShaderInput& input, const FrameUniforms& frame) -> Color {
+    if (std::isfinite(input.depth)) return input.color;
 
-struct SkyboxShaderInput {
-    vec2 screenPosition;
-};
-
-struct SkyboxShaderOutput {
-    Color color;
-};
-
-using SkyboxShader = std::function<SkyboxShaderOutput(const SkyboxShaderInput&, const SkyboxShaderUniforms&)>;
-
-inline const VertexShader vertexShader = [](const VertexShaderInput& input,
-                                            const VertexShaderUniforms& uniforms) -> VertexShaderOutput {
-    VertexShaderOutput output;
-    const auto& VP = *uniforms.VP;
-    const auto& M = *uniforms.M;
-    const auto& inverseTransposeM = *uniforms.inverseTransposeM;
-    output.position = VP * M[input.instance_id] * vec4(input.position.x, input.position.y, input.position.z, 1.0);
-    output.normal = inverseTransposeM[input.instance_id] * input.normal;
-    return output;
-};
-
-inline const FragmentShader lambertShader = [](const FragmentShaderInput& input,
-                                               const FragmentShaderUniforms& uniforms) -> FragmentShaderOutput {
-    FragmentShaderOutput output;
-    const auto& material = *uniforms.material;
-    const auto& lighting = *uniforms.lighting;
-
-    if (uniforms.hasTexcoords && material.texture) {
-        output.color = material.texture->sample(input.uv);
-    } else {
-        output.color = material.baseColor;
-    }
-    Color factor =
-        (lighting.ambientColor + lighting.light.color * std::max(0.f, dot(input.normal, lighting.light.direction)));
-    output.color.r = output.color.r * factor.r;
-    output.color.g = output.color.g * factor.g;
-    output.color.b = output.color.b * factor.b;
-    return output;
-};
-
-inline const FragmentShader unlitShader = [](const FragmentShaderInput& input,
-                                             const FragmentShaderUniforms& uniforms) -> FragmentShaderOutput {
-    FragmentShaderOutput output;
-    const auto& material = *uniforms.material;
-    if (uniforms.hasTexcoords && material.texture) {
-        output.color = material.texture->sample(input.uv);
-    } else {
-        output.color = material.baseColor;
-    }
-    return output;
-};
-
-inline const FragmentShader normalsShader = [](const FragmentShaderInput& input,
-                                               const FragmentShaderUniforms& uniforms) -> FragmentShaderOutput {
-    FragmentShaderOutput output;
-    output.color = Color((input.normal.x + 1.f) / 2.f, (input.normal.y + 1.f) / 2.f, (input.normal.z + 1.f) / 2.f, 1.f);
-    return output;
-};
-
-inline const FragmentShader texcoordsShader = [](const FragmentShaderInput& input,
-                                                 const FragmentShaderUniforms& uniforms) -> FragmentShaderOutput {
-    FragmentShaderOutput output;
-    if (uniforms.hasTexcoords)
-        output.color = Color(input.uv.x, input.uv.y, 0.0f, 1.0f);
-    else
-        output.color = Color(0, 0, 0, 1);
-    return output;
-};
-
-inline const FragmentShader normalizeDepthColors = [](const FragmentShaderInput& input,
-                                                      const FragmentShaderUniforms& uniforms) -> FragmentShaderOutput {
-    FragmentShaderOutput output;
-    float gray = input.depth;
-    if (uniforms.minDepth < uniforms.maxDepth && std::isfinite(gray)) {
-        float denum = 1.0f / (uniforms.maxDepth - uniforms.minDepth);
-        gray = (gray - uniforms.minDepth) * denum;
-        output.color = Color(gray, gray, gray, 1.0f);
-    } else {
-        output.color = Color(0, 0, 0, 1);
-    }
-    return output;
-};
-
-inline const SkyboxShader skyboxShader = [](const SkyboxShaderInput& input,
-                                            const SkyboxShaderUniforms& uniforms) -> SkyboxShaderOutput {
-    SkyboxShaderOutput output;
-    const auto& inversedVP = *uniforms.inversedVP;
-
-    vec4 world = inversedVP * vec4(input.screenPosition.x, input.screenPosition.y, 1.0f, 1.0f);
+    const mat4& inverseVP = *frame.inverseVP;
+    vec4 world = inverseVP * vec4(input.ndcX, input.ndcY, 1.0f, 1.0f);
     world *= 1.0f / world.w;
 
-    const vec3 rayDir = vec3(world.x, world.y, world.z) - *uniforms.cameraPosition;
-    output.color = (*uniforms.skybox).sample(rayDir);
-    return output;
+    const vec3 rayDirection = vec3(world.x, world.y, world.z) - *frame.cameraPosition;
+    return frame.skybox->sample(rayDirection);
 };
+
+inline constexpr ScreenShader normalizeDepthShader = [](const ScreenShaderInput& input,
+                                                        const FrameUniforms& /*frame*/) -> Color {
+    if (input.minDepth < input.maxDepth && std::isfinite(input.depth)) {
+        const float gray = (input.depth - input.minDepth) / (input.maxDepth - input.minDepth);
+        return Color(gray, gray, gray, 1.0f);
+    }
+    return Color(0, 0, 0, 1);
+};
+
+/* Pipelines */
+
+struct Pipeline {
+    std::string_view name;
+    VertexShader vertexShader = defaultVertexShader;
+    std::span<const FragmentShader> fragmentShaders{};
+    std::span<const ScreenShader> screenShaders{};
+    bool depthOnly = false;
+};
+
+inline constexpr FragmentShader lambertStages[] = {lambertShader};
+inline constexpr FragmentShader unlitStages[] = {unlitShader};
+inline constexpr FragmentShader normalsStages[] = {normalsShader};
+inline constexpr FragmentShader texcoordsStages[] = {texcoordsShader};
+
+inline constexpr ScreenShader skyboxStages[] = {skyboxShader};
+inline constexpr ScreenShader depthStages[] = {normalizeDepthShader};
+
+inline constexpr Pipeline passes[] = {
+    // Чтобы добавить режим, опишите стадии выше и добавьте сюда строку:
+    // растеризатор и интерфейс подхватят пайплайн автоматически.
+    {.name = "Lambert",
+     .vertexShader = defaultVertexShader,
+     .fragmentShaders = lambertStages,
+     .screenShaders = skyboxStages},
+    {.name = "Unlit", .vertexShader = defaultVertexShader, .fragmentShaders = unlitStages},
+    {.name = "Depth",
+     .vertexShader = defaultVertexShader,
+     .screenShaders = depthStages,
+     .depthOnly = true},
+    {.name = "Normals", .vertexShader = defaultVertexShader, .fragmentShaders = normalsStages},
+    {.name = "Texcoords", .vertexShader = defaultVertexShader, .fragmentShaders = texcoordsStages},
+};
+
+inline constexpr std::size_t passesCount = std::size(passes);
+
 }  // namespace shaders

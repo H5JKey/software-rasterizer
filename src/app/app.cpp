@@ -29,6 +29,7 @@ import model.material;
 import model.texture;
 import renderer.framebuffer;
 import renderer.rasterizer;
+import renderer.shaders;
 import scene.skybox;
 import app.theme;
 
@@ -256,15 +257,13 @@ void App::drawUI() {
             ImGui::Begin("##left", nullptr, panelFlags);
             ImGui::SeparatorText("Modes");
 
-            int modeInt = static_cast<int>(rasterizer.mode);
+            int modeInt = static_cast<int>(rasterizer.getPassIndex());
             bool changed = false;
-            changed |= ImGui::RadioButton("Lambert", &modeInt, 0);
-            changed |= ImGui::RadioButton("Unlit", &modeInt, 1);
-            changed |= ImGui::RadioButton("Depth", &modeInt, 2);
-            changed |= ImGui::RadioButton("Normals", &modeInt, 3);
-            changed |= ImGui::RadioButton("Texcoords", &modeInt, 4);
+            for (int i = 0; i < static_cast<int>(shaders::passesCount); ++i) {
+                changed |= ImGui::RadioButton(shaders::passes[i].name.data(), &modeInt, i);
+            }
             if (changed) {
-                rasterizer.setRenderMode(static_cast<Rasterizer::RenderMode>(modeInt));
+                rasterizer.setPass(static_cast<std::size_t>(modeInt));
             }
 
             ImGui::SeparatorText("Camera");
