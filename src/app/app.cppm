@@ -11,6 +11,7 @@ module;
 
 export module app;
 import renderer.framebuffer;
+import renderer.viewport;
 import renderer.rasterizer;
 import scene.scene;
 import scene.camera;
@@ -35,7 +36,10 @@ export class App {
 
     GLFWwindow* window;
     int width, height;
+    int renderWidth = 320, renderHeight = 240;
     Framebuffer framebuffer;
+    Viewport viewport;
+    Filter currentUpscalerFilter = Filter::Nearest;
     Scene scene;
     Rasterizer rasterizer;
     std::vector<Texture> loadedTextures;

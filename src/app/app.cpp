@@ -28,6 +28,7 @@ import model.mesh;
 import model.material;
 import model.texture;
 import renderer.framebuffer;
+import renderer.viewport;
 import renderer.rasterizer;
 import renderer.shaders;
 import scene.skybox;
@@ -128,6 +129,7 @@ App::App(std::size_t w, std::size_t h, const std::string& title)
     : width(static_cast<int>(w)),
       height(static_cast<int>(h)),
       framebuffer(0, 0),
+      viewport(0, 0),
       scene(makeCamera(width, height), makeLighting(),
             Skybox("resources/textures/skybox/hills_lf.png", "resources/textures/skybox/hills_rt.png",
                    "resources/textures/skybox/hills_ft.png", "resources/textures/skybox/hills_bk.png",
@@ -149,7 +151,7 @@ App::App(std::size_t w, std::size_t h, const std::string& title)
 
     glfwMakeContextCurrent(window);
     glfwGetFramebufferSize(window, &this->width, &this->height);
-    framebuffer.resize(this->width, this->height);
+    framebuffer.resize(renderWidth, renderHeight);
     glfwSwapInterval(0);
 
     IMGUI_CHECKVERSION();
@@ -204,9 +206,12 @@ void App::update(double elapsedTime) {
         viewPortHeight -= (static_cast<int>(topPanelHeight) + static_cast<int>(bottomPanelHeight));
         viewPortWidth -= (static_cast<int>(leftPanelWidth) + static_cast<int>(rightPanelWidth));
     }
-    if (framebuffer.width != viewPortWidth || framebuffer.height != viewPortHeight) {
-        framebuffer.resize(viewPortWidth, viewPortHeight);
-        scene.camera.aspect = static_cast<float>(framebuffer.width) / static_cast<float>(framebuffer.height);
+    if (viewport.width != viewPortWidth || viewport.height != viewPortHeight) {
+        viewport.resize(viewPortWidth, viewPortHeight);
+        scene.camera.aspect = static_cast<float>(viewport.width) / static_cast<float>(viewport.height);
+    }
+    if (framebuffer.width != renderWidth || framebuffer.height != renderHeight) {
+        framebuffer.resize(renderWidth, renderHeight);
     }
     scene.camera.update(elapsedTime);
 }
@@ -214,11 +219,12 @@ void App::update(double elapsedTime) {
 void App::drawFrame() {
     framebuffer.clear();
     rasterizer.drawScene(framebuffer, scene);
+    viewport.upscaleFromFramebuffer(framebuffer, currentUpscalerFilter);
 
     const int vx = static_cast<int>(showPanels ? leftPanelWidth : 0);
     const int vy = static_cast<int>(showPanels ? topPanelHeight : 0);
-    const int vw = framebuffer.width;
-    const int vh = framebuffer.height;
+    const int vw = viewport.width;
+    const int vh = viewport.height;
     if (vw <= 0 || vh <= 0) return;
 
     const int glY = height - vy - vh;
@@ -228,7 +234,7 @@ void App::drawFrame() {
     glScissor(vx, glY, vw, vh);
 
     glRasterPos2i(-1, -1);
-    glDrawPixels(vw, vh, GL_RGBA, GL_FLOAT, framebuffer.pixels.data());
+    glDrawPixels(vw, vh, GL_RGBA, GL_FLOAT, viewport.pixels.data());
 
     glDisable(GL_SCISSOR_TEST);
     glViewport(0, 0, width, height);
@@ -270,6 +276,26 @@ void App::drawUI() {
             ImGui::SliderFloat("Fov", &scene.camera.fov, 0.05f, 3.14f, "%.2f");
             ImGui::SliderFloat("ZNear", &scene.camera.zNear, 0.1, 20.0, "%.1f");
             ImGui::SliderFloat("ZFar", &scene.camera.zFar, 20.0, 100.0f, "%.1f");
+
+            ImGui::SeparatorText("Render");
+            ImGui::DragInt("Width##render", &renderWidth, 1.0f, 16, viewport.width, "%d", ImGuiSliderFlags_AlwaysClamp);
+            ImGui::DragInt("Height##render", &renderHeight, 1.0f, 16, viewport.height, "%d",
+                           ImGuiSliderFlags_AlwaysClamp);
+            renderWidth = std::min(renderWidth, viewport.width);
+            renderHeight = std::min(renderHeight, viewport.height);
+            if (ImGui::Button("Fit to viewport")) {
+                renderWidth = std::clamp(viewport.width, 16, 4096);
+                renderHeight = std::clamp(viewport.height, 16, 4096);
+            }
+            ImGui::Text("Filter");
+            int filter = static_cast<int>(currentUpscalerFilter);
+            changed = false;
+            changed |= ImGui::RadioButton("Nearest", &filter, 0);
+            changed |= ImGui::RadioButton("Bilinear", &filter, 1);
+            if (changed) currentUpscalerFilter = static_cast<Filter>(filter);
+
+            ImGui::Text("Framebuffer: %dx%d", framebuffer.width, framebuffer.height);
+            ImGui::Text("Viewport: %dx%d", viewport.width, viewport.height);
             ImGui::End();
         }
         if (rightPanelWidth > 0.0) {

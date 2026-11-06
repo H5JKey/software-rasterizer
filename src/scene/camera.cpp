@@ -1,4 +1,5 @@
 module;
+#include <cmath>
 #include <print>
 
 module scene.camera;

@@ -55,6 +55,7 @@ PUBLIC
         src/renderer/shaders.cppm
         src/scene/camera.cppm
         src/renderer/framebuffer.cppm
+        src/renderer/viewport.cppm
         src/model/material.cppm
         src/model/mesh.cppm
         src/model/object.cppm
