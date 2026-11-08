@@ -42,7 +42,7 @@ export class App {
     Filter currentUpscalerFilter = Filter::Nearest;
     Scene scene;
     Rasterizer rasterizer;
-    std::vector<Texture> loadedTextures;
+    std::vector<TextureWithMipLevels> loadedTextures;
     std::array<float, 512> fpsHistory;
     std::size_t frame = 0;
 

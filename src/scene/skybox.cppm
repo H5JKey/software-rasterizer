@@ -62,6 +62,6 @@ export class Skybox {
             }
         }
 
-        return tex->sample(uv, 0);
+        return tex->sample(uv);
     }
 };

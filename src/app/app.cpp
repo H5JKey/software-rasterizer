@@ -32,6 +32,7 @@ import renderer.viewport;
 import renderer.rasterizer;
 import renderer.shaders;
 import scene.skybox;
+import scene.terrain;
 import app.theme;
 
 namespace {
@@ -133,7 +134,8 @@ App::App(std::size_t w, std::size_t h, const std::string& title)
       scene(makeCamera(width, height), makeLighting(),
             Skybox("resources/textures/skybox/hills_lf.png", "resources/textures/skybox/hills_rt.png",
                    "resources/textures/skybox/hills_ft.png", "resources/textures/skybox/hills_bk.png",
-                   "resources/textures/skybox/hills_up.jpg", "resources/textures/skybox/hills_dn.png")) {
+                   "resources/textures/skybox/hills_up.jpg", "resources/textures/skybox/hills_dn.png"),
+            Terrain(42)) {
     glfwSetErrorCallback(
         [](int error, const char* description) { std::println(stderr, "GLFW error {}: {}", error, description); });
 
@@ -172,7 +174,7 @@ void App::buildScene() {
 
     scene.addObject(Object{Mesh::loadFromFile("resources/Bunny.obj"), std::move(material)});
     scene.addObjectInstance(0);
-    scene.updateObjectTransform(0, 0, scale(2, 2, 2));
+    scene.updateObjectTransform(0, 0, translation(0, 5, 0) * scale(2, 2, 2));
 }
 
 void App::run() {
@@ -215,7 +217,8 @@ void App::update(double elapsedTime) {
     if (framebuffer.width != renderWidth || framebuffer.height != renderHeight) {
         framebuffer.resize(renderWidth, renderHeight);
     }
-    scene.camera.update(elapsedTime);
+
+    scene.update(elapsedTime);
 }
 
 void App::drawFrame() {

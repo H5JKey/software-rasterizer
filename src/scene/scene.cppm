@@ -8,6 +8,7 @@ import scene.camera;
 import model.object;
 import scene.skybox;
 import math;
+import scene.terrain;
 
 export struct DirectionalLight {
     vec3 direction;
@@ -30,6 +31,7 @@ export class Scene {
     };
     Skybox skybox;
     Camera camera;
+    Terrain terrain;
 
     void addObject(Object object) {
         objects.emplace_back(std::move(object));
@@ -58,9 +60,21 @@ export class Scene {
     const std::vector<Object>& getAllObjects() const { return objects; }
 
     Lighting lighting;
-    Scene(Camera camera, Lighting lighting, Skybox skybox, std::vector<Object> objects = {})
+    Scene(Camera camera, Lighting lighting, Skybox skybox, Terrain terrain, std::vector<Object> objects = {})
         : objects(std::move(objects)),
           skybox(std::move(skybox)),
           camera(std::move(camera)),
-          lighting(std::move(lighting)) {}
+          terrain(std::move(terrain)),
+          lighting(std::move(lighting)) {
+        /* Учитываем ладшафт*/
+        stats.objectsCount += 1;
+        stats.instancesCount += 1;
+        stats.totalTrianglesCount += terrain.asObject().mesh.indices.size() / 3;
+    }
+
+    void update(double elapsedTime) {
+        camera.update(elapsedTime);
+
+        terrain.followCamera(camera.getEye());
+    }
 };

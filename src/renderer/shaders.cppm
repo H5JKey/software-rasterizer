@@ -13,6 +13,7 @@ import model.material;
 import math;
 import scene.scene;
 import scene.skybox;
+import scene.terrain;
 
 export namespace shaders {
 
@@ -33,6 +34,7 @@ struct DrawUniforms {
     const Material* material = nullptr;
     std::size_t instanceId = 0;
     bool hasTexcoords = false;
+    const Terrain* terrain = nullptr;
 };
 
 struct VertexShaderInput {
@@ -58,6 +60,37 @@ inline constexpr VertexShader defaultVertexShader = [](const VertexShaderInput& 
         .worldPosition = vec3(world.x, world.y, world.z),
         .normal = (*draw.inverseTransposeM) * input.normal,
         .uv = input.uv,
+    };
+};
+
+inline constexpr VertexShader terrainVertexShader = [](const VertexShaderInput& input, const FrameUniforms& frame,
+                                                       const DrawUniforms& draw) -> VertexShaderOutput {
+    const auto& terrain = *draw.terrain;
+
+    vec4 world = (*draw.M) * vec4(input.position.x, 0.0, input.position.z, 1.0f);
+
+    const float e = terrain.step * 0.5f;
+    const float h = terrain.heightAt(world.x, world.z);
+    world.y = h;
+
+    const float hL = terrain.heightAt(world.x - e, world.z);
+    const float hR = terrain.heightAt(world.x + e, world.z);
+    const float hD = terrain.heightAt(world.x, world.z - e);
+    const float hU = terrain.heightAt(world.x, world.z + e);
+
+    const float dhdx = (hR - hL) / (2.0f * e);
+    const float dhdz = (hU - hD) / (2.0f * e);
+
+    const vec3 normal = normalize(vec3(-dhdx, 1.0f, -dhdz));
+
+    const float inv = terrain.invUvPeriod;
+    const float u = world.x * inv;
+    const float v = world.z * inv;
+    return {
+        .clipPosition = (*frame.VP) * world,
+        .worldPosition = vec3(world.x, world.y, world.z),
+        .normal = normal,
+        .uv = vec2(u - std::floor(u), v - std::floor(v)),
     };
 };
 
@@ -99,7 +132,7 @@ inline constexpr FragmentShader mipLevelShader = [](ShaderContext& context, cons
                                                     const DrawUniforms& draw) {
     const auto& material = *draw.material;
     if (!draw.hasTexcoords || material.texture == nullptr) {
-        context.color = material.baseColor;
+        context.color = Color(0, 0, 0, 1);
         return;
     }
 
@@ -109,7 +142,7 @@ inline constexpr FragmentShader mipLevelShader = [](ShaderContext& context, cons
 
     std::size_t levels = material.texture->mipLevels.size();
     float maxLod = static_cast<float>(levels > 0 ? levels - 1 : 0);
-    lod = std::clamp(std::floor(rawLod), 0.0f, maxLod);
+    lod = std::clamp(std::floor(lod), 0.0f, maxLod);
 
     const float t = maxLod > 0.0f ? lod / maxLod : 0.0f;
     const float phase = t * 4.71238898f;
@@ -162,7 +195,6 @@ inline constexpr ScreenShader normalizeDepthShader = [](const ScreenShaderInput&
 
 struct Pipeline {
     std::string_view name;
-    VertexShader vertexShader = defaultVertexShader;
     std::span<const FragmentShader> fragmentShaders{};
     std::span<const ScreenShader> screenShaders{};
 };
@@ -177,15 +209,12 @@ inline constexpr ScreenShader skyboxStages[] = {skyboxShader};
 inline constexpr ScreenShader depthStages[] = {normalizeDepthShader};
 
 inline constexpr Pipeline passes[] = {
-    {.name = "Lambert",
-     .vertexShader = defaultVertexShader,
-     .fragmentShaders = lambertStages,
-     .screenShaders = skyboxStages},
-    {.name = "Unlit", .vertexShader = defaultVertexShader, .fragmentShaders = unlitStages},
-    {.name = "Depth", .vertexShader = defaultVertexShader, .screenShaders = depthStages},
-    {.name = "Normals", .vertexShader = defaultVertexShader, .fragmentShaders = normalsStages},
-    {.name = "Texcoords", .vertexShader = defaultVertexShader, .fragmentShaders = texcoordsStages},
-    {.name = "MipLevels", .vertexShader = defaultVertexShader, .fragmentShaders = mipLevelStages},
+    {.name = "Lambert", .fragmentShaders = lambertStages, .screenShaders = skyboxStages},
+    {.name = "Unlit", .fragmentShaders = unlitStages},
+    {.name = "Depth", .screenShaders = depthStages},
+    {.name = "Normals", .fragmentShaders = normalsStages},
+    {.name = "Texcoords", .fragmentShaders = texcoordsStages},
+    {.name = "MipLevels", .fragmentShaders = mipLevelStages},
 };
 
 inline constexpr std::size_t passesCount = std::size(passes);

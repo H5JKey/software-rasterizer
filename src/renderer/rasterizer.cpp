@@ -12,6 +12,7 @@ import model.object;
 import math;
 import scene.scene;
 import renderer.shaders;
+import scene.terrain;
 
 void Rasterizer::drawTriangle(Framebuffer& buffer, const ScreenVertexAttributes& v0, const ScreenVertexAttributes& v1,
                               const ScreenVertexAttributes& v2, float edge012,
@@ -81,13 +82,18 @@ void Rasterizer::drawTriangle(Framebuffer& buffer, const ScreenVertexAttributes&
 }
 
 void Rasterizer::drawObject(Framebuffer& buffer, const Object& object, const shaders::FrameUniforms& frameUniforms,
-                            float zNear) {
+                            float zNear, const Terrain* terrain) {
+    shaders::VertexShader vertexShader = shaders::defaultVertexShader;
+
+    if (terrain) vertexShader = shaders::terrainVertexShader;
+
     const Mesh& mesh = object.mesh;
-    const bool hasTexcoords = mesh.texcoords.size() == mesh.vertices.size();
+    bool hasTexcoords = mesh.texcoords.size() == mesh.vertices.size();
 
     clipCoords.resize(mesh.vertices.size());
     transformedNormals.resize(mesh.vertices.size());
     transformedWorldPositions.resize(mesh.vertices.size());
+    transformedTexcoords.resize(mesh.vertices.size());
 
     const auto& modelMatrices = object.getModel();
     const auto& inverseTransposeModelMatrices = object.getInverseTransposeModel();
@@ -98,8 +104,6 @@ void Rasterizer::drawObject(Framebuffer& buffer, const Object& object, const sha
         vec3 normal;
         vec2 texcoord;
     };
-
-    auto texcoordAt = [&](std::size_t index) { return hasTexcoords ? mesh.texcoords[index] : vec2(); };
 
     auto toScreen = [&](const ClipVertex& clip) -> ScreenVertexAttributes {
         ScreenVertexAttributes output{};
@@ -119,11 +123,12 @@ void Rasterizer::drawObject(Framebuffer& buffer, const Object& object, const sha
                                                  .inverseTransposeM = &inverseTransposeModelMatrices[instance_id],
                                                  .material = &object.material,
                                                  .instanceId = instance_id,
-                                                 .hasTexcoords = hasTexcoords};
+                                                 .hasTexcoords = terrain || hasTexcoords,
+                                                 .terrain = terrain};
 
 #pragma omp parallel for
         for (std::size_t i = 0; i < mesh.vertices.size(); i++) {
-            const auto output = currentPipeline().vertexShader(
+            const auto output = vertexShader(
                 shaders::VertexShaderInput{
                     .position = mesh.vertices[i],
                     .normal = mesh.normals[i],
@@ -133,6 +138,7 @@ void Rasterizer::drawObject(Framebuffer& buffer, const Object& object, const sha
             clipCoords[i] = output.clipPosition;
             transformedNormals[i] = output.normal;
             transformedWorldPositions[i] = output.worldPosition;
+            transformedTexcoords[i] = output.uv;
         }
 
         for (std::size_t tri_idx = 0; tri_idx < mesh.indices.size() / 3; ++tri_idx) {
@@ -153,7 +159,7 @@ void Rasterizer::drawObject(Framebuffer& buffer, const Object& object, const sha
                         polygon[polygonSize++] = ClipVertex{.position = clipCoords[a],
                                                             .worldPosition = transformedWorldPositions[a],
                                                             .normal = transformedNormals[a],
-                                                            .texcoord = texcoordAt(a)};
+                                                            .texcoord = transformedTexcoords[a]};
                     }
                     if ((da >= 0) != (db >= 0)) {
                         const float t = da / (da - db);
@@ -162,7 +168,8 @@ void Rasterizer::drawObject(Framebuffer& buffer, const Object& object, const sha
                             .worldPosition = transformedWorldPositions[a] +
                                              (transformedWorldPositions[b] - transformedWorldPositions[a]) * t,
                             .normal = transformedNormals[a] + (transformedNormals[b] - transformedNormals[a]) * t,
-                            .texcoord = texcoordAt(a) + (texcoordAt(b) - texcoordAt(a)) * t,
+                            .texcoord =
+                                transformedTexcoords[a] + (transformedTexcoords[b] - transformedTexcoords[a]) * t,
                         };
                     }
                 }
@@ -189,15 +196,15 @@ void Rasterizer::drawObject(Framebuffer& buffer, const Object& object, const sha
                     toScreen(ClipVertex{.position = clipCoords[i0],
                                         .worldPosition = transformedWorldPositions[i0],
                                         .normal = transformedNormals[i0],
-                                        .texcoord = texcoordAt(i0)}),
+                                        .texcoord = transformedTexcoords[i0]}),
                     toScreen(ClipVertex{.position = clipCoords[i1],
                                         .worldPosition = transformedWorldPositions[i1],
                                         .normal = transformedNormals[i1],
-                                        .texcoord = texcoordAt(i1)}),
+                                        .texcoord = transformedTexcoords[i1]}),
                     toScreen(ClipVertex{.position = clipCoords[i2],
                                         .worldPosition = transformedWorldPositions[i2],
                                         .normal = transformedNormals[i2],
-                                        .texcoord = texcoordAt(i2)}),
+                                        .texcoord = transformedTexcoords[i2]}),
                 };
 
                 const float area = edgeFunction(attributes[0].position, attributes[1].position, attributes[2].position);
@@ -262,6 +269,8 @@ void Rasterizer::drawScene(Framebuffer& buffer, const Scene& scene) {
     for (const auto& object : scene.getAllObjects()) {
         drawObject(buffer, object, frameUniforms, scene.camera.zNear);
     }
+
+    drawObject(buffer, scene.terrain.asObject(), frameUniforms, scene.camera.zNear, &scene.terrain);
 
     runScreenStages(buffer, frameUniforms);
 }

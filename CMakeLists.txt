@@ -65,6 +65,8 @@ PUBLIC
         src/app/app.cppm
         src/app/theme.cppm
         src/scene/skybox.cppm
+        src/utils/perlin-noise.cppm
+        src/scene/terrain.cppm
 
 )
 

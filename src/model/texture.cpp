@@ -10,7 +10,7 @@ module;
 
 module model.texture;
 
-Color Texture::MipLevel::sample(vec2 uv) const {
+Color Texture::sample(vec2 uv) const {
     float x = uv.x * width - 0.5;
     float y = uv.y * height - 0.5;
 
@@ -45,14 +45,15 @@ Texture Texture::loadFromFile(const std::filesystem::path& filename) {
     return Texture(width, height, std::move(pixels));
 }
 
-void Texture::buildMipLevels(std::size_t width, std::size_t height, std::vector<Color> pixels) {
-    mipLevels.push_back(MipLevel{.pixels = std::move(pixels), .width = width, .height = height});
-
+void TextureWithMipLevels::buildMipLevels(Texture texture) {
+    mipLevels.push_back(std::move(texture));
+    std::size_t width = texture.width;
+    std::size_t height = texture.height;
     while (width > 1 || height > 1) {
         const std::size_t nextWidth = std::max<std::size_t>(1, (width + 1) / 2);
         const std::size_t nextHeight = std::max<std::size_t>(1, (height + 1) / 2);
 
-        const MipLevel& src = mipLevels.back();
+        const Texture& src = mipLevels.back();
         std::vector<Color> nextPixels(nextWidth * nextHeight);
 
         for (std::size_t y = 0; y < nextHeight; ++y) {
@@ -71,6 +72,6 @@ void Texture::buildMipLevels(std::size_t width, std::size_t height, std::vector<
 
         width = nextWidth;
         height = nextHeight;
-        mipLevels.push_back(MipLevel{.pixels = std::move(nextPixels), .width = width, .height = height});
+        mipLevels.emplace_back(width, height, std::move(nextPixels));
     }
 }

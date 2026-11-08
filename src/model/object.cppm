@@ -17,9 +17,9 @@ export class Object {
 
     Object(Mesh mesh, Material material);
 
-    void addInstance(mat4 modelMatrix = mat4::identity());
+    Object& addInstance(mat4 modelMatrix = mat4::identity());
 
-    void updateTransform(std::size_t instance_id, mat4 modelMatrix);
+    Object& updateTransform(std::size_t instance_id, mat4 modelMatrix);
 
     const std::vector<mat4>& getModel() const;
 

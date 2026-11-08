@@ -13,11 +13,13 @@ import model.object;
 import model.material;
 import model.mesh;
 import scene.skybox;
+import scene.terrain;
 
 export class Rasterizer {
     std::vector<vec3> transformedNormals;
     std::vector<vec3> transformedWorldPositions;
     std::vector<vec4> clipCoords;
+    std::vector<vec2> transformedTexcoords;
     struct ScreenVertexAttributes {
         vec2 position;
         float depth;
@@ -35,8 +37,8 @@ export class Rasterizer {
                       const ScreenVertexAttributes& v2, float area, const shaders::FrameUniforms& frameUniforms,
                       const shaders::DrawUniforms& drawUniforms) const;
 
-    void drawObject(Framebuffer& buffer, const Object& object, const shaders::FrameUniforms& frameUniforms,
-                    float zNear);
+    void drawObject(Framebuffer& buffer, const Object& object, const shaders::FrameUniforms& frameUniforms, float zNear,
+                    const Terrain* terrain = nullptr);
 
     void runScreenStages(Framebuffer& buffer, const shaders::FrameUniforms& frameUniforms);
 
@@ -45,6 +47,7 @@ export class Rasterizer {
         transformedNormals.reserve(1024);
         transformedWorldPositions.reserve(1024);
         clipCoords.reserve(1024);
+        transformedTexcoords.reserve(1024);
     }
 
     void drawScene(Framebuffer& buffer, const Scene& scene);

@@ -10,20 +10,25 @@ import utils.images;
 import math;
 
 export class Texture {
-    struct MipLevel {
-        std::vector<Color> pixels;
-        std::size_t width, height;
-        Color sample(vec2 uv) const;
-    };
+   public:
+    Texture(std::size_t width, std::size_t height, std::vector<Color> pixels)
+        : width(width), height(height), pixels(std::move(pixels)) {}
 
-    void buildMipLevels(std::size_t width, std::size_t height, std::vector<Color> pixels);
+    std::size_t width, height;
+    std::vector<Color> pixels;
 
-    Texture(std::size_t width, std::size_t height, std::vector<Color> pixels) {
-        buildMipLevels(width, height, std::move(pixels));
-    }
+    Color sample(vec2 uv) const;
+
+    static Texture loadFromFile(const std::filesystem::path& filename);
+};
+
+export class TextureWithMipLevels {
+    void buildMipLevels(Texture);
 
    public:
-    std::vector<MipLevel> mipLevels;
+    std::vector<Texture> mipLevels;
+
+    TextureWithMipLevels(Texture texture) { buildMipLevels(std::move(texture)); }
 
     Color sample(vec2 uv, float lod) const {
         lod = std::clamp(lod, 0.0f, static_cast<float>(mipLevels.size() - 1));
@@ -32,6 +37,4 @@ export class Texture {
         float t = lod - static_cast<float>(l0);
         return mipLevels[l0].sample(uv) * (1.0 - t) + mipLevels[l1].sample(uv) * t;
     }
-
-    static Texture loadFromFile(const std::filesystem::path& filename);
 };

@@ -14,9 +14,8 @@ export struct AABB {
 };
 
 export class Mesh {
-    Mesh() = default;
-
    public:
+    Mesh() = default;
     std::vector<vec3> vertices;
     std::vector<vec3> normals;
     std::vector<vec2> texcoords;
