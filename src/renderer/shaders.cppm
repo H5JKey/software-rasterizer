@@ -16,8 +16,6 @@ import scene.skybox;
 
 export namespace shaders {
 
-/* Uniforms */
-
 struct FrameUniforms {
     const mat4* VP = nullptr;
     const mat4* inverseVP = nullptr;
@@ -36,8 +34,6 @@ struct DrawUniforms {
     std::size_t instanceId = 0;
     bool hasTexcoords = false;
 };
-
-/* Vertex stage */
 
 struct VertexShaderInput {
     vec3 position;
@@ -65,13 +61,6 @@ inline constexpr VertexShader defaultVertexShader = [](const VertexShaderInput& 
     };
 };
 
-/* Fragment stages
- *
- * Стадии выполняются по порядку и накапливают результат в context.color.
- * Поэтому пайплайн может состоять из нескольких шейдеров: например,
- * base shading, затем туман, затем гамма-коррекция.
- */
-
 struct ShaderContext {
     vec3 worldPosition;
     vec3 normal;
@@ -96,29 +85,48 @@ inline constexpr FragmentShader lambertShader = [](ShaderContext& context, const
     context.color = color;
 };
 
-inline constexpr FragmentShader unlitShader = [](ShaderContext& context, const FrameUniforms& /*frame*/,
+inline constexpr FragmentShader unlitShader = [](ShaderContext& context, const FrameUniforms& frame,
                                                  const DrawUniforms& draw) {
     const auto& material = *draw.material;
-    context.color = (draw.hasTexcoords && material.texture) ? material.texture->sample(context.uv) : material.baseColor;
+    float distance =
+        2.0f * frame.zNear * frame.zFar / (frame.zFar + frame.zNear - context.depth * (frame.zFar - frame.zNear));
+    float lod = std::log2(std::max(distance, 1e-4f));
+    context.color =
+        (draw.hasTexcoords && material.texture) ? material.texture->sample(context.uv, lod) : material.baseColor;
 };
 
-inline constexpr FragmentShader normalsShader = [](ShaderContext& context, const FrameUniforms& /*frame*/,
-                                                   const DrawUniforms& /*draw*/) {
+inline constexpr FragmentShader mipLevelShader = [](ShaderContext& context, const FrameUniforms& frame,
+                                                    const DrawUniforms& draw) {
+    const auto& material = *draw.material;
+    if (!draw.hasTexcoords || material.texture == nullptr) {
+        context.color = material.baseColor;
+        return;
+    }
+
+    float distance =
+        2.0f * frame.zNear * frame.zFar / (frame.zFar + frame.zNear - context.depth * (frame.zFar - frame.zNear));
+    float lod = std::log2(std::max(distance, 1e-4f));
+
+    std::size_t levels = material.texture->mipLevels.size();
+    float maxLod = static_cast<float>(levels > 0 ? levels - 1 : 0);
+    lod = std::clamp(std::floor(rawLod), 0.0f, maxLod);
+
+    const float t = maxLod > 0.0f ? lod / maxLod : 0.0f;
+    const float phase = t * 4.71238898f;
+    context.color = Color(0.5f + 0.5f * std::cos(phase), 0.5f + 0.5f * std::cos(phase + 2.09439510f),
+                          0.5f + 0.5f * std::cos(phase + 4.18879020f), 1.0f);
+};
+
+inline constexpr FragmentShader normalsShader = [](ShaderContext& context, const FrameUniforms&,
+                                                   const DrawUniforms& draw) {
     context.color =
         Color((context.normal.x + 1.f) / 2.f, (context.normal.y + 1.f) / 2.f, (context.normal.z + 1.f) / 2.f, 1.f);
 };
 
-inline constexpr FragmentShader texcoordsShader = [](ShaderContext& context, const FrameUniforms& /*frame*/,
+inline constexpr FragmentShader texcoordsShader = [](ShaderContext& context, const FrameUniforms&,
                                                      const DrawUniforms& draw) {
     context.color = draw.hasTexcoords ? Color(context.uv.x, context.uv.y, 0.0f, 1.0f) : Color(0, 0, 0, 1);
 };
-
-/* Screen stages
- *
- * Выполняются после геометрии для каждого пикселя буфера. Стадии получают
- * текущий цвет и могут его заменить. Скайбокс и визуализация глубины —
- * такие же стадии, поэтому отдельных типов шейдеров для них не нужно.
- */
 
 struct ScreenShaderInput {
     int x;
@@ -144,16 +152,13 @@ inline constexpr ScreenShader skyboxShader = [](const ScreenShaderInput& input, 
     return frame.skybox->sample(rayDirection);
 };
 
-inline constexpr ScreenShader normalizeDepthShader = [](const ScreenShaderInput& input,
-                                                        const FrameUniforms& /*frame*/) -> Color {
+inline constexpr ScreenShader normalizeDepthShader = [](const ScreenShaderInput& input, const FrameUniforms&) -> Color {
     if (input.minDepth < input.maxDepth && std::isfinite(input.depth)) {
         const float gray = (input.depth - input.minDepth) / (input.maxDepth - input.minDepth);
         return Color(gray, gray, gray, 1.0f);
     }
     return Color(0, 0, 0, 1);
 };
-
-/* Pipelines */
 
 struct Pipeline {
     std::string_view name;
@@ -166,6 +171,7 @@ inline constexpr FragmentShader lambertStages[] = {unlitShader, lambertShader};
 inline constexpr FragmentShader unlitStages[] = {unlitShader};
 inline constexpr FragmentShader normalsStages[] = {normalsShader};
 inline constexpr FragmentShader texcoordsStages[] = {texcoordsShader};
+inline constexpr FragmentShader mipLevelStages[] = {mipLevelShader};
 
 inline constexpr ScreenShader skyboxStages[] = {skyboxShader};
 inline constexpr ScreenShader depthStages[] = {normalizeDepthShader};
@@ -179,6 +185,7 @@ inline constexpr Pipeline passes[] = {
     {.name = "Depth", .vertexShader = defaultVertexShader, .screenShaders = depthStages},
     {.name = "Normals", .vertexShader = defaultVertexShader, .fragmentShaders = normalsStages},
     {.name = "Texcoords", .vertexShader = defaultVertexShader, .fragmentShaders = texcoordsStages},
+    {.name = "MipLevels", .vertexShader = defaultVertexShader, .fragmentShaders = mipLevelStages},
 };
 
 inline constexpr std::size_t passesCount = std::size(passes);

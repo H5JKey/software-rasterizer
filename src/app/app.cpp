@@ -170,7 +170,7 @@ void App::buildScene() {
     loadedTextures.emplace_back(Texture::loadFromFile("resources/textures/porcelain.jpg"));
     Material material{.baseColor = Color(1, 1, 1, 1), .texture = &loadedTextures[0]};
 
-    scene.addObject(Object{Mesh::loadFromFile("resources/cornell_box.obj"), std::move(material)});
+    scene.addObject(Object{Mesh::loadFromFile("resources/Bunny.obj"), std::move(material)});
     scene.addObjectInstance(0);
     scene.updateObjectTransform(0, 0, scale(2, 2, 2));
 }
@@ -202,6 +202,8 @@ void App::run() {
 void App::update(double elapsedTime) {
     int viewPortWidth = width;
     int viewPortHeight = height;
+    renderWidth = std::min(renderWidth, width);
+    renderHeight = std::min(renderHeight, height);
     if (showPanels) {
         viewPortHeight -= (static_cast<int>(topPanelHeight) + static_cast<int>(bottomPanelHeight));
         viewPortWidth -= (static_cast<int>(leftPanelWidth) + static_cast<int>(rightPanelWidth));
@@ -278,15 +280,9 @@ void App::drawUI() {
             ImGui::SliderFloat("ZFar", &scene.camera.zFar, 20.0, 100.0f, "%.1f");
 
             ImGui::SeparatorText("Render");
-            ImGui::DragInt("Width##render", &renderWidth, 1.0f, 16, viewport.width, "%d", ImGuiSliderFlags_AlwaysClamp);
-            ImGui::DragInt("Height##render", &renderHeight, 1.0f, 16, viewport.height, "%d",
-                           ImGuiSliderFlags_AlwaysClamp);
-            renderWidth = std::min(renderWidth, viewport.width);
-            renderHeight = std::min(renderHeight, viewport.height);
-            if (ImGui::Button("Fit to viewport")) {
-                renderWidth = std::clamp(viewport.width, 16, 4096);
-                renderHeight = std::clamp(viewport.height, 16, 4096);
-            }
+            ImGui::DragInt("Width##render", &renderWidth, 1.0f, 16, width, "%d", ImGuiSliderFlags_AlwaysClamp);
+            ImGui::DragInt("Height##render", &renderHeight, 1.0f, 16, height, "%d", ImGuiSliderFlags_AlwaysClamp);
+
             ImGui::Text("Filter");
             int filter = static_cast<int>(currentUpscalerFilter);
             changed = false;

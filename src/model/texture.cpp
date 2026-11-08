@@ -1,14 +1,16 @@
 module;
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <filesystem>
+#include <stdexcept>
 #include <utility>
 #include <vector>
 
 module model.texture;
 
-Color Texture::sample(vec2 uv) const {
+Color Texture::MipLevel::sample(vec2 uv) const {
     float x = uv.x * width - 0.5;
     float y = uv.y * height - 0.5;
 
@@ -41,4 +43,34 @@ Texture Texture::loadFromFile(const std::filesystem::path& filename) {
         }
     }
     return Texture(width, height, std::move(pixels));
+}
+
+void Texture::buildMipLevels(std::size_t width, std::size_t height, std::vector<Color> pixels) {
+    mipLevels.push_back(MipLevel{.pixels = std::move(pixels), .width = width, .height = height});
+
+    while (width > 1 || height > 1) {
+        const std::size_t nextWidth = std::max<std::size_t>(1, (width + 1) / 2);
+        const std::size_t nextHeight = std::max<std::size_t>(1, (height + 1) / 2);
+
+        const MipLevel& src = mipLevels.back();
+        std::vector<Color> nextPixels(nextWidth * nextHeight);
+
+        for (std::size_t y = 0; y < nextHeight; ++y) {
+            const std::size_t y0 = std::min(2 * y, src.height - 1);
+            const std::size_t y1 = std::min(2 * y + 1, src.height - 1);
+
+            for (std::size_t x = 0; x < nextWidth; ++x) {
+                const std::size_t x0 = std::min(2 * x, src.width - 1);
+                const std::size_t x1 = std::min(2 * x + 1, src.width - 1);
+
+                nextPixels[y * nextWidth + x] = (src.pixels[y0 * src.width + x0] + src.pixels[y0 * src.width + x1] +
+                                                 src.pixels[y1 * src.width + x0] + src.pixels[y1 * src.width + x1]) *
+                                                0.25f;
+            }
+        }
+
+        width = nextWidth;
+        height = nextHeight;
+        mipLevels.push_back(MipLevel{.pixels = std::move(nextPixels), .width = width, .height = height});
+    }
 }

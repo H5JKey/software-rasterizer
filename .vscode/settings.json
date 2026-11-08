@@ -1,4 +1,6 @@
 {
+  "editor.formatOnSave": true,
+  "editor.formatOnSaveMode": "file",
   "terminal.integrated.defaultProfile.linux": "fish",
   "terminal.integrated.profiles.linux": {
     "fish": {
