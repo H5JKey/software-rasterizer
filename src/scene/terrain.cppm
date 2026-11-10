@@ -17,10 +17,10 @@ import model.material;
 
 export class Terrain {
    public:
-    int resolution = 256;      // число клеток сетки по каждой оси
-    float step = 0.5f;         // размер клетки в мировых единицах
-    float heightScale = 8.0f;  // амплитуда высот
-    float invUvPeriod = 0.5f;  // 1.0 / период повторения uv
+    int resolution = 256;       // число клеток сетки
+    float step = 0.5f;          // размер шага клетки
+    float heightScale = 16.0f;  // амплитуда высот
+    float invUvPeriod = 0.5f;   // 1.0 / период повторения uv
    private:
     Perlin2D heightMap;
     Object terrainObject;
@@ -72,12 +72,12 @@ export class Terrain {
     }
 
    public:
-    Terrain(std::uint32_t seed) : heightMap(seed, 6), terrainObject(buildGeometry(), Material()) {
+    Terrain(std::uint32_t seed) : heightMap(seed, 4), terrainObject(buildGeometry(), Material()) {
         terrainObject.addInstance();
     }
 
     float heightAt(float x, float z) const {
-        const vec2 p(x * 0.08f, z * 0.08f);
+        const vec2 p(x * 0.05f, z * 0.05f);
         return heightMap.sample(p) * heightScale;
     }
 

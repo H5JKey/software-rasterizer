@@ -118,8 +118,8 @@ inline constexpr FragmentShader lambertShader = [](ShaderContext& context, const
     context.color = color;
 };
 
-inline constexpr FragmentShader unlitShader = [](ShaderContext& context, const FrameUniforms& frame,
-                                                 const DrawUniforms& draw) {
+inline constexpr FragmentShader materialShader = [](ShaderContext& context, const FrameUniforms& frame,
+                                                    const DrawUniforms& draw) {
     const auto& material = *draw.material;
     float distance =
         2.0f * frame.zNear * frame.zFar / (frame.zFar + frame.zNear - context.depth * (frame.zFar - frame.zNear));
@@ -199,8 +199,8 @@ struct Pipeline {
     std::span<const ScreenShader> screenShaders{};
 };
 
-inline constexpr FragmentShader lambertStages[] = {unlitShader, lambertShader};
-inline constexpr FragmentShader unlitStages[] = {unlitShader};
+inline constexpr FragmentShader lambertStages[] = {materialShader, lambertShader};
+inline constexpr FragmentShader unlitStages[] = {materialShader};
 inline constexpr FragmentShader normalsStages[] = {normalsShader};
 inline constexpr FragmentShader texcoordsStages[] = {texcoordsShader};
 inline constexpr FragmentShader mipLevelStages[] = {mipLevelShader};
