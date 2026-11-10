@@ -19,7 +19,7 @@ export class Texture {
 
     Color sample(vec2 uv) const;
 
-    static Texture loadFromFile(const std::filesystem::path& filename);
+    static const Texture& loadFromFile(const std::filesystem::path& filename);
 };
 
 export class TextureWithMipLevels {
@@ -29,6 +29,8 @@ export class TextureWithMipLevels {
     std::vector<Texture> mipLevels;
 
     TextureWithMipLevels(Texture texture) { buildMipLevels(std::move(texture)); }
+
+    static const TextureWithMipLevels& loadFromFile(const std::filesystem::path& filename);
 
     Color sample(vec2 uv, float lod) const {
         lod = std::clamp(lod, 0.0f, static_cast<float>(mipLevels.size() - 1));

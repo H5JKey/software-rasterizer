@@ -42,9 +42,10 @@ export class App {
     Filter currentUpscalerFilter = Filter::Nearest;
     Scene scene;
     Rasterizer rasterizer;
-    std::vector<TextureWithMipLevels> loadedTextures;
     std::array<float, 512> fpsHistory;
     std::size_t frame = 0;
+    bool followTerrain = false;
+    Camera savedCamera;
 
     struct MouseInfo {
         double prevMousePosX, prevMousePosY;
@@ -61,7 +62,7 @@ export class App {
     void drawFrame();
 
    public:
-    App(std::size_t width, std::size_t height, const std::string& title);
+    App(int vw, int vh, int rw, int rh, const std::string& title);
     void run();
     ~App();
 };

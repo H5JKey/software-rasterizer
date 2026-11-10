@@ -37,10 +37,9 @@ import app.theme;
 
 namespace {
 
-Camera makeCamera(int width, int height) {
+Camera makeCamera(int width, int height, vec3 eye = vec3(0,0,0)) {
     constexpr float pi = std::numbers::pi_v<float>;
-    const vec3 eye(0.0f, 1.0f, 3.5f);
-    return Camera(eye, 0.0f, 0.0f, 90.0f * pi / 180.0f, static_cast<float>(width) / static_cast<float>(height), 0.1f,
+    return Camera(std::move(eye), 0.0f, 0.0f, 90.0f * pi / 180.0f, static_cast<float>(width) / static_cast<float>(height), 0.1f,
                   100.0f);
 }
 
@@ -126,16 +125,19 @@ void App::handleCursor(GLFWwindow* window, double xpos, double ypos) {
     app->scene.camera.pitch = std::clamp(app->scene.camera.pitch, -limit, limit);
 }
 
-App::App(std::size_t w, std::size_t h, const std::string& title)
-    : width(static_cast<int>(w)),
-      height(static_cast<int>(h)),
+App::App(int vw, int vh, int rw, int rh, const std::string& title)
+    : width(vw),
+      height(vh),
+      renderWidth(rw), 
+      renderHeight(rh),
       framebuffer(0, 0),
       viewport(0, 0),
-      scene(makeCamera(width, height), makeLighting(),
+      scene(makeCamera(width, height, vec3(0,2,0)), makeLighting(),
             Skybox("resources/textures/skybox/hills_lf.png", "resources/textures/skybox/hills_rt.png",
                    "resources/textures/skybox/hills_ft.png", "resources/textures/skybox/hills_bk.png",
                    "resources/textures/skybox/hills_up.jpg", "resources/textures/skybox/hills_dn.png"),
-            Terrain(42)) {
+            Terrain(42, "resources/textures/Grass_09-256x256.png", "resources/textures/Grass_11-256x256.png")),
+       savedCamera(makeCamera(width, height, vec3(0,scene.terrain.heightScale,0))) {
     glfwSetErrorCallback(
         [](int error, const char* description) { std::println(stderr, "GLFW error {}: {}", error, description); });
 
@@ -169,8 +171,11 @@ App::App(std::size_t w, std::size_t h, const std::string& title)
 }
 
 void App::buildScene() {
-    loadedTextures.emplace_back(Texture::loadFromFile("resources/textures/porcelain.jpg"));
-    Material material{.baseColor = Color(1, 1, 1, 1), .texture = &loadedTextures[0]};
+    Material material{
+        .baseColor = Color(1, 1, 1, 1),
+        .textures = {&TextureWithMipLevels::loadFromFile("resources/textures/porcelain.jpg")},
+        .shader = shaders::defaultMaterialShader,
+    };
 
     scene.addObject(Object{Mesh::loadFromFile("resources/Bunny.obj"), std::move(material)});
     scene.addObjectInstance(0);
@@ -216,6 +221,11 @@ void App::update(double elapsedTime) {
     }
     if (framebuffer.width != renderWidth || framebuffer.height != renderHeight) {
         framebuffer.resize(renderWidth, renderHeight);
+    }
+    if (followTerrain) {
+        scene.camera.yaw = 0;
+        scene.camera.pitch = 0;
+        scene.camera.velocity += vec3(0,0,-1);
     }
 
     scene.update(elapsedTime);
@@ -281,6 +291,9 @@ void App::drawUI() {
             ImGui::SliderFloat("Fov", &scene.camera.fov, 0.05f, 3.14f, "%.2f");
             ImGui::SliderFloat("ZNear", &scene.camera.zNear, 0.1, 20.0, "%.1f");
             ImGui::SliderFloat("ZFar", &scene.camera.zFar, 20.0, 100.0f, "%.1f");
+            if (ImGui::Checkbox("Follow terrain", &followTerrain)) {
+                std::swap(savedCamera, scene.camera);
+            }
 
             ImGui::SeparatorText("Render");
             ImGui::DragInt("Width##render", &renderWidth, 1.0f, 16, width, "%d", ImGuiSliderFlags_AlwaysClamp);

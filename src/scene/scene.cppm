@@ -60,6 +60,7 @@ export class Scene {
     const std::vector<Object>& getAllObjects() const { return objects; }
 
     Lighting lighting;
+    float time = 0.0f;
     Scene(Camera camera, Lighting lighting, Skybox skybox, Terrain terrain, std::vector<Object> objects = {})
         : objects(std::move(objects)),
           skybox(std::move(skybox)),
@@ -73,6 +74,7 @@ export class Scene {
     }
 
     void update(double elapsedTime) {
+        time += static_cast<float>(elapsedTime);
         camera.update(elapsedTime);
 
         terrain.followCamera(camera.getEye());

@@ -3,6 +3,7 @@ module;
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <deque>
 #include <filesystem>
 #include <stdexcept>
 #include <utility>
@@ -32,7 +33,7 @@ Color Texture::sample(vec2 uv) const {
     return color00 * (1 - a) * (1 - b) + color10 * a * (1 - b) + color01 * (1 - a) * b + color11 * a * b;
 }
 
-Texture Texture::loadFromFile(const std::filesystem::path& filename) {
+const Texture& Texture::loadFromFile(const std::filesystem::path& filename) {
     int width, height;
     std::vector<float> rgb_f32 = load_image_f32_rgb(filename, width, height, 2.2f);
     std::vector<Color> pixels(width * height);
@@ -42,7 +43,15 @@ Texture Texture::loadFromFile(const std::filesystem::path& filename) {
             pixels[idx] = Color(rgb_f32[3 * idx + 0], rgb_f32[3 * idx + 1], rgb_f32[3 * idx + 2], 1.0f);
         }
     }
-    return Texture(width, height, std::move(pixels));
+    static std::deque<Texture> loadedTextures;
+    loadedTextures.emplace_back(width, height, std::move(pixels));
+    return loadedTextures.back();
+}
+
+const TextureWithMipLevels& TextureWithMipLevels::loadFromFile(const std::filesystem::path& filename) {
+    static std::deque<TextureWithMipLevels> loadedTextures;
+    loadedTextures.emplace_back(Texture::loadFromFile(filename));
+    return loadedTextures.back();
 }
 
 void TextureWithMipLevels::buildMipLevels(Texture texture) {

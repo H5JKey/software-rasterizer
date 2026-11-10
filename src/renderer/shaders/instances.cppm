@@ -2,55 +2,18 @@ module;
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
-#include <iterator>
-#include <span>
-#include <string_view>
 
-export module renderer.shaders;
+export module renderer.shaders:instances;
 
-import renderer.framebuffer;
-import model.material;
 import math;
-import scene.scene;
+import model.material;
+import model.material.shaders;
+import model.texture;
 import scene.skybox;
 import scene.terrain;
+import :contract;
 
 export namespace shaders {
-
-struct FrameUniforms {
-    const mat4* VP = nullptr;
-    const mat4* inverseVP = nullptr;
-    const vec3* cameraPosition = nullptr;
-    const Scene::Lighting* lighting = nullptr;
-    const Skybox* skybox = nullptr;
-    float zNear = 0.0f;
-    float zFar = 1.0f;
-    float time = 0.0f;
-};
-
-struct DrawUniforms {
-    const mat4* M = nullptr;
-    const mat3* inverseTransposeM = nullptr;
-    const Material* material = nullptr;
-    std::size_t instanceId = 0;
-    bool hasTexcoords = false;
-    const Terrain* terrain = nullptr;
-};
-
-struct VertexShaderInput {
-    vec3 position;
-    vec3 normal;
-    vec2 uv;
-};
-
-struct VertexShaderOutput {
-    vec4 clipPosition;
-    vec3 worldPosition;
-    vec3 normal;
-    vec2 uv;
-};
-
-using VertexShader = VertexShaderOutput (*)(const VertexShaderInput&, const FrameUniforms&, const DrawUniforms&);
 
 inline constexpr VertexShader defaultVertexShader = [](const VertexShaderInput& input, const FrameUniforms& frame,
                                                        const DrawUniforms& draw) -> VertexShaderOutput {
@@ -94,16 +57,6 @@ inline constexpr VertexShader terrainVertexShader = [](const VertexShaderInput& 
     };
 };
 
-struct ShaderContext {
-    vec3 worldPosition;
-    vec3 normal;
-    vec2 uv;
-    float depth;
-    Color color = Color(0, 0, 0, 1);
-};
-
-using FragmentShader = void (*)(ShaderContext&, const FrameUniforms&, const DrawUniforms&);
-
 inline constexpr FragmentShader lambertShader = [](ShaderContext& context, const FrameUniforms& frame,
                                                    const DrawUniforms& draw) {
     const auto& material = *draw.material;
@@ -118,20 +71,44 @@ inline constexpr FragmentShader lambertShader = [](ShaderContext& context, const
     context.color = color;
 };
 
-inline constexpr FragmentShader materialShader = [](ShaderContext& context, const FrameUniforms& frame,
-                                                    const DrawUniforms& draw) {
-    const auto& material = *draw.material;
-    float distance =
+inline constexpr FragmentShader applyMaterialShader = [](ShaderContext& context, const FrameUniforms& frame,
+                                                         const DrawUniforms& draw) {
+    const Material& material = *draw.material;
+
+    const float distance =
         2.0f * frame.zNear * frame.zFar / (frame.zFar + frame.zNear - context.depth * (frame.zFar - frame.zNear));
-    float lod = std::log2(std::max(distance, 1e-4f));
-    context.color =
-        (draw.hasTexcoords && material.texture) ? material.texture->sample(context.uv, lod) : material.baseColor;
+    const float lod = std::log2(std::max(distance, 1e-4f));
+
+    const auto& lighting = *frame.lighting;
+    MaterialInput input{
+        .worldPosition = context.worldPosition,
+        .normal = context.normal,
+        .uv = context.uv,
+        .depth = context.depth,
+        .lod = lod,
+        .time = frame.time,
+        .hasTexcoords = draw.hasTexcoords,
+        .instanceId = draw.instanceId,
+        .color = context.color,
+        .ambientColor = lighting.ambientColor,
+        .lightColor = lighting.light.color,
+        .lightDirection = lighting.light.direction,
+    };
+
+    if (material.shader) {
+        material.shader(input, material);
+    } else {
+        defaultMaterialShader(input, material);
+    }
+
+    context.color = input.color;
 };
 
 inline constexpr FragmentShader mipLevelShader = [](ShaderContext& context, const FrameUniforms& frame,
                                                     const DrawUniforms& draw) {
     const auto& material = *draw.material;
-    if (!draw.hasTexcoords || material.texture == nullptr) {
+    const TextureWithMipLevels* texture = material.textures.empty() ? nullptr : material.textures.front();
+    if (!draw.hasTexcoords || texture == nullptr) {
         context.color = Color(0, 0, 0, 1);
         return;
     }
@@ -140,7 +117,7 @@ inline constexpr FragmentShader mipLevelShader = [](ShaderContext& context, cons
         2.0f * frame.zNear * frame.zFar / (frame.zFar + frame.zNear - context.depth * (frame.zFar - frame.zNear));
     float lod = std::log2(std::max(distance, 1e-4f));
 
-    std::size_t levels = material.texture->mipLevels.size();
+    std::size_t levels = texture->mipLevels.size();
     float maxLod = static_cast<float>(levels > 0 ? levels - 1 : 0);
     lod = std::clamp(std::floor(lod), 0.0f, maxLod);
 
@@ -161,19 +138,6 @@ inline constexpr FragmentShader texcoordsShader = [](ShaderContext& context, con
     context.color = draw.hasTexcoords ? Color(context.uv.x, context.uv.y, 0.0f, 1.0f) : Color(0, 0, 0, 1);
 };
 
-struct ScreenShaderInput {
-    int x;
-    int y;
-    float ndcX;
-    float ndcY;
-    float depth;
-    Color color;
-    float minDepth;
-    float maxDepth;
-};
-
-using ScreenShader = Color (*)(const ScreenShaderInput&, const FrameUniforms&);
-
 inline constexpr ScreenShader skyboxShader = [](const ScreenShaderInput& input, const FrameUniforms& frame) -> Color {
     if (std::isfinite(input.depth)) return input.color;
 
@@ -192,31 +156,5 @@ inline constexpr ScreenShader normalizeDepthShader = [](const ScreenShaderInput&
     }
     return Color(0, 0, 0, 1);
 };
-
-struct Pipeline {
-    std::string_view name;
-    std::span<const FragmentShader> fragmentShaders{};
-    std::span<const ScreenShader> screenShaders{};
-};
-
-inline constexpr FragmentShader lambertStages[] = {materialShader, lambertShader};
-inline constexpr FragmentShader unlitStages[] = {materialShader};
-inline constexpr FragmentShader normalsStages[] = {normalsShader};
-inline constexpr FragmentShader texcoordsStages[] = {texcoordsShader};
-inline constexpr FragmentShader mipLevelStages[] = {mipLevelShader};
-
-inline constexpr ScreenShader skyboxStages[] = {skyboxShader};
-inline constexpr ScreenShader depthStages[] = {normalizeDepthShader};
-
-inline constexpr Pipeline passes[] = {
-    {.name = "Lambert", .fragmentShaders = lambertStages, .screenShaders = skyboxStages},
-    {.name = "Unlit", .fragmentShaders = unlitStages},
-    {.name = "Depth", .screenShaders = depthStages},
-    {.name = "Normals", .fragmentShaders = normalsStages},
-    {.name = "Texcoords", .fragmentShaders = texcoordsStages},
-    {.name = "MipLevels", .fragmentShaders = mipLevelStages},
-};
-
-inline constexpr std::size_t passesCount = std::size(passes);
 
 }  // namespace shaders

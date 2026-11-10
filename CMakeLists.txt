@@ -52,11 +52,15 @@ PUBLIC
         src/math/transforms.cppm
         src/math/math.cppm
         src/renderer/rasterizer.cppm
-        src/renderer/shaders.cppm
+        src/renderer/shaders/contract.cppm
+        src/renderer/shaders/instances.cppm
+        src/renderer/shaders/pipeline.cppm
+        src/renderer/shaders/shaders.cppm
         src/scene/camera.cppm
         src/renderer/framebuffer.cppm
         src/renderer/viewport.cppm
-        src/model/material.cppm
+        src/model/material/material.cppm
+        src/model/material/shaders.cppm
         src/model/mesh.cppm
         src/model/object.cppm
         src/scene/scene.cppm

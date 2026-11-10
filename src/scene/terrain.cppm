@@ -4,6 +4,7 @@ module;
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <filesystem>
 #include <print>
 #include <vector>
 
@@ -14,6 +15,8 @@ import utils.perlin;
 import model.object;
 import model.mesh;
 import model.material;
+import model.material.shaders;
+import model.texture;
 
 export class Terrain {
    public:
@@ -72,7 +75,14 @@ export class Terrain {
     }
 
    public:
-    Terrain(std::uint32_t seed) : heightMap(seed, 4), terrainObject(buildGeometry(), Material()) {
+    Terrain(std::uint32_t seed, const std::filesystem::path& grass, const std::filesystem::path& stone)
+        : heightMap(seed, 4),
+          terrainObject(buildGeometry(), Material{
+                                             .baseColor = Color(1, 1, 1, 1),
+                                             .textures = {&TextureWithMipLevels::loadFromFile(grass),
+                                                          &TextureWithMipLevels::loadFromFile(stone)},
+                                             .shader = shaders::TerrainTexturesMaterialShader,
+                                         }) {
         terrainObject.addInstance();
     }
 

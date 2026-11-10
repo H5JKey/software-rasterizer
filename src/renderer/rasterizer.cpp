@@ -264,7 +264,8 @@ void Rasterizer::drawScene(Framebuffer& buffer, const Scene& scene) {
                                                .lighting = &scene.lighting,
                                                .skybox = &scene.skybox,
                                                .zNear = scene.camera.zNear,
-                                               .zFar = scene.camera.zFar};
+                                               .zFar = scene.camera.zFar,
+                                               .time = scene.time};
 
     for (const auto& object : scene.getAllObjects()) {
         drawObject(buffer, object, frameUniforms, scene.camera.zNear);
