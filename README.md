@@ -77,18 +77,12 @@ sudo apt install build-essential cmake ninja-build clang git pkg-config \
     libwayland-dev libxkbcommon-dev wayland-protocols
 ```
 
-Если GLFW уже установлен в системе, `FetchContent` может использовать его
-вместо сборки из исходников; dev-пакеты X11/Wayland нужны именно для сборки
-GLFW из исходников.
-
 Конфигурация и сборка Release:
 
 ```bash
 cmake --preset release
 cmake --build build/release -j
 ```
-
-Готовый бинарник: `build/release/raster`.
 
 Эквивалент без пресета:
 
@@ -105,11 +99,6 @@ Debug-сборка:
 cmake --preset debug
 cmake --build build/debug -j
 ```
-
-В Release используются `-O3 -march=native`, в Debug — `-O0 -g`. Замерять
-производительность и проверять порог 20 FPS имеет смысл только в Release.
-Из-за `-march=native` бинарник оптимизирован под CPU, на котором выполнялась
-сборка.
 
 ### Windows
 
@@ -167,10 +156,6 @@ WASD и мышь работают, когда панели скрыты. Дви�
   масштаб 2, поднят над ландшафтом.
 * Освещение: направленный свет + фоновая составляющая.
 * Камера: старт в точке `(0, 2, 0)`, FOV 90°, `zNear = 0.1`, `zFar = 100`.
-
-Механизм instancing реализован в `Object`/`Scene`: один меш может иметь
-несколько матриц экземпляров, дополнительные копии добавляются через
-`Scene::addObjectInstance`.
 
 ## Соглашения
 
