@@ -8,6 +8,7 @@ module;
 #include <chrono>
 #include <string>
 #include <vector>
+#include <filesystem>
 
 export module app;
 import renderer.framebuffer;
@@ -62,7 +63,7 @@ export class App {
     void drawFrame();
 
    public:
-    App(int vw, int vh, int rw, int rh, const std::string& title);
+    App(int vw, int vh, int rw, int rh, const std::string& title, const std::optional<std::filesystem::path>& savedHeightMapFilename);
     void run();
     ~App();
 };

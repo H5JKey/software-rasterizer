@@ -28,20 +28,12 @@ export class Terrain {
     Perlin2D heightMap;
     Object terrainObject;
 
+
     Mesh buildGeometry() const {
         Mesh geometry;
         std::size_t n = std::max(resolution, 1);
         std::size_t row = resolution + 1;
         float halfResolution = static_cast<float>(resolution) * 0.5f;
-
-        std::vector<float> heights(row * row);
-        for (std::size_t j = 0; j <= n; j++) {
-            for (std::size_t i = 0; i <= n; ++i) {
-                float x = (static_cast<float>(i) - halfResolution) * step;
-                float z = (static_cast<float>(j) - halfResolution) * step;
-                heights[j * row + i] = heightAt(x, z);
-            }
-        }
 
         geometry.vertices.reserve(row * row);
         geometry.normals.resize(row * row);
@@ -89,6 +81,10 @@ export class Terrain {
     float heightAt(float x, float z) const {
         const vec2 p(x * 0.05f, z * 0.05f);
         return heightMap.sample(p) * heightScale;
+    }
+
+    const Perlin2D& getHeightMap() const {
+        return heightMap;
     }
 
     const Object& asObject() const noexcept { return terrainObject; }

@@ -11,6 +11,7 @@ module;
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <filesystem>
 #include <format>
 #include <numbers>
 #include <print>
@@ -37,10 +38,10 @@ import app.theme;
 
 namespace {
 
-Camera makeCamera(int width, int height, vec3 eye = vec3(0,0,0)) {
+Camera makeCamera(int width, int height, vec3 eye = vec3(0, 0, 0)) {
     constexpr float pi = std::numbers::pi_v<float>;
-    return Camera(std::move(eye), 0.0f, 0.0f, 90.0f * pi / 180.0f, static_cast<float>(width) / static_cast<float>(height), 0.1f,
-                  100.0f);
+    return Camera(std::move(eye), 0.0f, 0.0f, 90.0f * pi / 180.0f,
+                  static_cast<float>(width) / static_cast<float>(height), 0.1f, 100.0f);
 }
 
 Scene::Lighting makeLighting() {
@@ -125,25 +126,27 @@ void App::handleCursor(GLFWwindow* window, double xpos, double ypos) {
     app->scene.camera.pitch = std::clamp(app->scene.camera.pitch, -limit, limit);
 }
 
-App::App(int vw, int vh, int rw, int rh, const std::string& title)
+App::App(int vw, int vh, int rw, int rh, const std::string& title,
+         const std::optional<std::filesystem::path>& savedHeightMapFilename)
     : width(vw),
       height(vh),
-      renderWidth(rw), 
+      renderWidth(rw),
       renderHeight(rh),
       framebuffer(0, 0),
       viewport(0, 0),
-      scene(makeCamera(width, height, vec3(0,2,0)), makeLighting(),
+      scene(makeCamera(width, height, vec3(0, 2, 0)), makeLighting(),
             Skybox("resources/textures/skybox/hills_lf.png", "resources/textures/skybox/hills_rt.png",
                    "resources/textures/skybox/hills_ft.png", "resources/textures/skybox/hills_bk.png",
                    "resources/textures/skybox/hills_up.jpg", "resources/textures/skybox/hills_dn.png"),
             Terrain(42, "resources/textures/Grass_09-256x256.png", "resources/textures/Grass_11-256x256.png")),
-       savedCamera(makeCamera(width, height, vec3(0,scene.terrain.heightScale,0))) {
+      savedCamera(makeCamera(width, height, vec3(0, scene.terrain.heightScale, 0))) {
     glfwSetErrorCallback(
         [](int error, const char* description) { std::println(stderr, "GLFW error {}: {}", error, description); });
 
     if (!glfwInit()) {
         throw std::runtime_error("Failed to initialize GLFW");
     }
+    if (savedHeightMapFilename) scene.terrain.getHeightMap().saveToPng(256, 256, *savedHeightMapFilename);
 
     glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
     window = glfwCreateWindow(width, height, title.c_str(), nullptr, nullptr);
@@ -225,7 +228,7 @@ void App::update(double elapsedTime) {
     if (followTerrain) {
         scene.camera.yaw = 0;
         scene.camera.pitch = 0;
-        scene.camera.velocity += vec3(0,0,-1);
+        scene.camera.velocity += vec3(0, 0, -1);
     }
 
     scene.update(elapsedTime);

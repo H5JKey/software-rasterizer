@@ -4,16 +4,19 @@ module;
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <filesystem>
 #include <numeric>
 #include <random>
+#include <vector>
 
 export module utils.perlin;
 
 import math;
+import utils.images;
 
 export class Perlin2D {
    public:
-    explicit Perlin2D(std::uint32_t seed, int octaves) : octaves(std::max(1, octaves)) {
+    Perlin2D(std::uint32_t seed, int octaves) : octaves(std::max(1, octaves)) {
         std::array<std::uint8_t, 256> p{};
         std::iota(p.begin(), p.end(), 0);
 
@@ -40,6 +43,21 @@ export class Perlin2D {
         }
 
         return result / amplitudeSum;
+    }
+
+    void saveToPng(std::size_t width, std::size_t height, const std::filesystem::path& filename) const {
+        constexpr float scale = 0.05f;
+        std::vector<float> pixels(width * height * 3);
+        for (std::size_t y = 0; y < height; ++y) {
+            for (std::size_t x = 0; x < width; ++x) {
+                const float value = sample(vec2(static_cast<float>(x), static_cast<float>(y)) * scale) * 0.5f + 0.5f;
+                const std::size_t i = (y * width + x) * 3;
+                pixels[i + 0] = value;
+                pixels[i + 1] = value;
+                pixels[i + 2] = value;
+            }
+        }
+        save_image_f32_png_rgb(pixels.data(), filename, width, height, 3, 1.0f);
     }
 
    private:
