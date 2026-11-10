@@ -79,10 +79,27 @@ target_include_directories(raster PUBLIC
 )
 
 
-find_package(OpenMP QUIET)
-if (OpenMP_FOUND)
-    target_link_libraries(raster PUBLIC  OpenMP::OpenMP_CXX)
+if (WIN32 AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    set(OpenMP_CXX_FLAGS "-Xclang -fopenmp")
+    get_filename_component(_llvm "${CMAKE_CXX_COMPILER}/../.." ABSOLUTE)
+    find_library(OpenMP_libomp_LIBRARY libomp HINTS "${_llvm}/lib" NO_DEFAULT_PATH)
+    if (NOT OpenMP_libomp_LIBRARY)
+        message(FATAL_ERROR "libomp.lib не найден — установите OpenMP Runtime в LLVM")
+    endif()
 endif()
+
+find_package(OpenMP)
+if (OpenMP_CXX_FOUND)
+    target_link_libraries(raster PUBLIC OpenMP::OpenMP_CXX)
+    if (WIN32 AND OpenMP_libomp_LIBRARY)
+        add_custom_command(TARGET raster POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${_llvm}/bin/libomp.dll" $<TARGET_FILE_DIR:raster>)
+    endif()
+else()
+    message(WARNING "OpenMP не найден")
+endif()
+
 
 set(OpenGL_GL_PREFERENCE GLVND)
 find_package(OpenGL)

@@ -17,7 +17,27 @@ export class Texture {
     std::size_t width, height;
     std::vector<Color> pixels;
 
-    Color sample(vec2 uv) const;
+    Color sample(vec2 uv) const {
+        float x = uv.x * width - 0.5;
+        float y = uv.y * height - 0.5;
+
+        int i = static_cast<int>(std::floor(x));
+        int j = static_cast<int>(std::floor(y));
+        float a = x - i;
+        float b = y - j;
+
+        std::size_t left = (i + static_cast<int>(width)) % width;
+        std::size_t right = (i + 1) % width;
+        std::size_t up = (j + static_cast<int>(height)) % height;
+        std::size_t down = (j + 1) % height;
+
+        Color color00 = pixels[up * width + left];
+        Color color10 = pixels[up * width + right];
+        Color color01 = pixels[down * width + left];
+        Color color11 = pixels[down * width + right];
+
+        return color00 * (1 - a) * (1 - b) + color10 * a * (1 - b) + color01 * (1 - a) * b + color11 * a * b;
+    }
 
     static const Texture& loadFromFile(const std::filesystem::path& filename);
 };
