@@ -4,7 +4,6 @@
 
 [![C++](https://img.shields.io/badge/C++-23-blue?logo=cplusplus&style=flat-square)](https://isocpp.org/)
 [![CMake](https://img.shields.io/badge/CMake-3.28+-064F8C?logo=cmake)](https://cmake.org/)
-[![OpenGL](https://img.shields.io/badge/OpenGL-4.6-green?logo=opengl&style=flat-square)](https://www.opengl.org/)
 
 Программный (CPU) растеризатор — решение задания по университетскому курсу компьютерной графики. 
 Вся геометрия и все пиксели считаются на CPU; OpenGL используется
