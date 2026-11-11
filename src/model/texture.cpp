@@ -15,6 +15,7 @@ const Texture& Texture::loadFromFile(const std::filesystem::path& filename) {
     int width, height;
     std::vector<float> rgb_f32 = load_image_f32_rgb(filename, width, height, 2.2f);
     std::vector<Color> pixels(width * height);
+#pragma omp parallel for if (static_cast<long long>(width) * height >= 4096)
     for (int row = 0; row < height; row++) {
         for (int col = 0; col < width; col++) {
             std::size_t idx = row * width + col;
@@ -43,6 +44,7 @@ void TextureWithMipLevels::buildMipLevels(Texture texture) {
         const Texture& src = mipLevels.back();
         std::vector<Color> nextPixels(nextWidth * nextHeight);
 
+#pragma omp parallel for if (nextWidth * nextHeight >= 4096)
         for (std::size_t y = 0; y < nextHeight; ++y) {
             const std::size_t y0 = std::min(2 * y, src.height - 1);
             const std::size_t y1 = std::min(2 * y + 1, src.height - 1);

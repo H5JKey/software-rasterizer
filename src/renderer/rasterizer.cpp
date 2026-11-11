@@ -126,7 +126,7 @@ void Rasterizer::drawObject(Framebuffer& buffer, const Object& object, const sha
                                                  .hasTexcoords = terrain || hasTexcoords,
                                                  .terrain = terrain};
 
-#pragma omp parallel for
+#pragma omp parallel for schedule(static) if (mesh.vertices.size() >= 2048)
         for (std::size_t i = 0; i < mesh.vertices.size(); i++) {
             const auto output = vertexShader(
                 shaders::VertexShaderInput{
@@ -229,27 +229,28 @@ void Rasterizer::runScreenStages(Framebuffer& buffer, const shaders::FrameUnifor
         }
     }
 
-#pragma omp parallel for
-    for (std::size_t idx = 0; idx < buffer.depth.size(); idx++) {
-        const int x = static_cast<int>(idx % static_cast<std::size_t>(buffer.width));
-        const int y = static_cast<int>(idx / static_cast<std::size_t>(buffer.width));
+#pragma omp parallel for schedule(static) if (buffer.width * buffer.height >= 16384)
+    for (int y = 0; y < buffer.height; y++) {
+        std::size_t row = static_cast<std::size_t>(y) * buffer.width;
+        for (int x = 0; x < buffer.width; x++) {
+            std::size_t idx = row + x;
+            shaders::ScreenShaderInput input{
+                .x = x,
+                .y = y,
+                .ndcX = 2.0f * (static_cast<float>(x) + 0.5f) / static_cast<float>(buffer.width) - 1.0f,
+                .ndcY = 2.0f * (static_cast<float>(y) + 0.5f) / static_cast<float>(buffer.height) - 1.0f,
+                .depth = buffer.depth[idx],
+                .color = buffer.pixels[idx],
+                .minDepth = minDepth,
+                .maxDepth = maxDepth,
+            };
 
-        shaders::ScreenShaderInput input{
-            .x = x,
-            .y = y,
-            .ndcX = 2.0f * (static_cast<float>(x) + 0.5f) / static_cast<float>(buffer.width) - 1.0f,
-            .ndcY = 2.0f * (static_cast<float>(y) + 0.5f) / static_cast<float>(buffer.height) - 1.0f,
-            .depth = buffer.depth[idx],
-            .color = buffer.pixels[idx],
-            .minDepth = minDepth,
-            .maxDepth = maxDepth,
-        };
+            for (const shaders::ScreenShader stage : pipeline.screenShaders) {
+                input.color = stage(input, frameUniforms);
+            }
 
-        for (const shaders::ScreenShader stage : pipeline.screenShaders) {
-            input.color = stage(input, frameUniforms);
+            buffer.pixels[idx] = input.color;
         }
-
-        buffer.pixels[idx] = input.color;
     }
 }
 

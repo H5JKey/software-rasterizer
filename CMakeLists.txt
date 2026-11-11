@@ -18,11 +18,25 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     else()
         add_compile_options(-Wall -Wno-unused-function -O0 -g)
     endif()
-else()
+elseif(CMAKE_BUILD_TYPE STREQUAL "Profile")
     if(MSVC)
-        add_compile_options(/wd4505 /wd5045 /wd4820 /wd4242 /wd4244 /wd4996 /wd4668 /wd4100 /O2)
+        add_compile_options(/O2 /Zi /DEBUG /Qvec-report:2 /wd4505 /wd5045 /wd4820 /wd4242 /wd4244 /wd4996 /wd4668 /wd4100)
+        add_link_options(/DEBUG)
     else()
-        add_compile_options(-Wall -Wno-unused-function -O3 -march=native)
+        add_compile_options(
+            -Wall -Wno-unused-function
+            -O3 -g -fno-omit-frame-pointer -march=native
+        )
+        # Только для C++ компилятора Clang
+        add_compile_options(
+            $<$<COMPILE_LANG_AND_ID:CXX,Clang>:-Rpass=loop-vectorize>
+            $<$<COMPILE_LANG_AND_ID:CXX,Clang>:-Rpass-missed=loop-vectorize>
+        )
+        # Только для C++ компилятора GCC
+        add_compile_options(
+            $<$<COMPILE_LANG_AND_ID:CXX,GNU>:-fopt-info-vec-optimized>
+            $<$<COMPILE_LANG_AND_ID:CXX,GNU>:-fopt-info-vec-missed>
+        )
     endif()
 endif()
 

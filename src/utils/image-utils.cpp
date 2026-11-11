@@ -1,9 +1,10 @@
 module;
+#include <cmath>
 #include <filesystem>
 #include <vector>
+
 #include "stb_image.h"
 #include "stb_image_write.h"
-#include <cmath>
 
 module utils.images;
 
@@ -89,6 +90,7 @@ std::vector<float> load_image_f32_rgb(const std::filesystem::path& filename, int
     int sz = 3 * w * h;
     std::vector<float> data_f32(sz);
 
+#pragma omp parallel for schedule(static) if (sz >= 4096)
     for (int i = 0; i < sz; i++) data_f32[i] = powf(raw_data[i] / 255.0f, gamma);
 
     stbi_image_free(raw_data);
