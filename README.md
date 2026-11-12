@@ -67,7 +67,7 @@
 * GLFW и ImGui: подтягиваются через `FetchContent` при первой конфигурации,
   поэтому нужен доступ в сеть (или заранее заполненный `build/*/_deps`).
 
-### Linux (Debian/Ubuntu)
+### Зависимости (Debian/Ubuntu)
 
 ```bash
 sudo apt install build-essential cmake ninja-build clang git pkg-config \
@@ -76,19 +76,12 @@ sudo apt install build-essential cmake ninja-build clang git pkg-config \
     libwayland-dev libxkbcommon-dev wayland-protocols
 ```
 
-Конфигурация и сборка Release:
+### Сборка
+
+Release-сборка:
 
 ```bash
 cmake --preset release
-cmake --build build/release -j
-```
-
-Эквивалент без пресета:
-
-```bash
-cmake -S . -B build/release -G Ninja \
-    -DCMAKE_BUILD_TYPE=Release \
-    -DCMAKE_CXX_COMPILER=clang++
 cmake --build build/release -j
 ```
 
@@ -99,15 +92,11 @@ cmake --preset debug
 cmake --build build/debug -j
 ```
 
-### Windows
-
-CMake-проект кросс-платформенный, но пресеты в `CMakePresets.json` рассчитаны
-на Linux (`Ninja` + `clang++`). Для Windows нужно самостоятельно задать
-генератор и компилятор, например:
+Profile-сборка:
 
 ```bash
-cmake -S . -B build/release -G Ninja -DCMAKE_BUILD_TYPE=Release
-cmake --build build/release -j
+cmake --preset profile
+cmake --build build/profile -j
 ```
 
 ## Запуск
