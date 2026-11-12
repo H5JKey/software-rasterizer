@@ -31,8 +31,10 @@ export class Texture {
         float x = uv.x * static_cast<float>(w) - 0.5f;
         float y = uv.y * static_cast<float>(h) - 0.5f;
 
-        int i = static_cast<int>(std::floor(x));
-        int j = static_cast<int>(std::floor(y));
+        int i = static_cast<int>(x);
+        i -= (x < static_cast<float>(i)); 
+        int j = static_cast<int>(y);
+        j -= (y < static_cast<float>(j)); 
         float a = x - static_cast<float>(i);
         float b = y - static_cast<float>(j);
 

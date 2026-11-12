@@ -41,7 +41,6 @@ export class Viewport {
                     const std::size_t row = static_cast<std::size_t>(y) * width;
                     for (int x = 0; x < width; x++) {
                         const std::size_t srcRow = static_cast<std::size_t>(srcY) * srcWidth;
-                        const std::size_t row = static_cast<std::size_t>(y) * width;
 
                         const int srcX = static_cast<int>((x + 0.5f) * srcWidth / width);
                         pixels[row + x] = framebuffer.pixels[srcRow + srcX];

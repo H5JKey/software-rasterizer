@@ -38,6 +38,12 @@ elseif(CMAKE_BUILD_TYPE STREQUAL "Profile")
             $<$<COMPILE_LANG_AND_ID:CXX,GNU>:-fopt-info-vec-missed>
         )
     endif()
+elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
+    if(MSVC)
+        add_compile_options(/wd4505 /wd5045 /wd4820 /wd4242 /wd4244 /wd4996 /wd4668 /wd4100 /O2)
+    else()
+        add_compile_options(-Wall -Wno-unused-function -O3 -march=native)
+    endif()
 endif()
 
 if (WIN32)
