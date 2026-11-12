@@ -29,13 +29,33 @@ export class Rasterizer {
         vec2 texcoord;
     };
 
+    struct RasterTriangle {
+        ScreenVertexAttributes v0;
+        ScreenVertexAttributes v1;
+        ScreenVertexAttributes v2;
+        float area;
+        int minX, minY, maxX, maxY;
+        std::size_t drawIndex;
+    };
+
+    std::vector<RasterTriangle> rasterTriangles;
+    std::vector<shaders::DrawUniforms> drawUniformsPool;
+    std::vector<std::vector<std::size_t>> tileTriangleIndices;
+
+    static constexpr int tileSize = 32;
+
     std::size_t passIndex = 0;
 
     const shaders::Pipeline& currentPipeline() const { return shaders::passes[passIndex]; }
 
-    void drawTriangle(Framebuffer& buffer, const ScreenVertexAttributes& v0, const ScreenVertexAttributes& v1,
-                      const ScreenVertexAttributes& v2, float area, const shaders::FrameUniforms& frameUniforms,
-                      const shaders::DrawUniforms& drawUniforms) const;
+    void emitTriangle(Framebuffer& buffer, const ScreenVertexAttributes& v0, const ScreenVertexAttributes& v1,
+                      const ScreenVertexAttributes& v2, float area, std::size_t drawIndex);
+
+    void rasterizeTriangle(Framebuffer& buffer, const RasterTriangle& triangle,
+                           const shaders::DrawUniforms& drawUniforms, const shaders::FrameUniforms& frameUniforms,
+                           int minX, int minY, int maxX, int maxY) const;
+
+    void rasterize(Framebuffer& buffer, const shaders::FrameUniforms& frameUniforms);
 
     void drawObject(Framebuffer& buffer, const Object& object, const shaders::FrameUniforms& frameUniforms, float zNear,
                     const Terrain* terrain = nullptr);
