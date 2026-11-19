@@ -1,3 +1,7 @@
+module;
+
+#include <cmath>
+
 export module scene.camera;
 
 import math;
@@ -33,5 +37,14 @@ export class Camera {
     constexpr mat4 getPerspectiveMatrix() const { return perspective(fov, aspect, zNear, zFar); }
     constexpr vec3 getEye() const { return eye; }
 
-    void update(double dt);
+    void update(double dt) {
+        buildCoordinateSystem();
+        vec3 worldVel = right * velocity.x + up * velocity.y + forward * velocity.z;
+
+        eye += worldVel * dt * 20.f;
+
+        const float damping = std::exp(-15.0f * dt);
+        velocity *= damping;
+        if (length(velocity) < 1e-4f) velocity = vec3(0, 0, 0);
+    }
 };

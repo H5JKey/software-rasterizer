@@ -29,7 +29,7 @@ import model.mesh;
 import model.material;
 import model.texture;
 import renderer.framebuffer;
-import renderer.viewport;
+import renderer.image;
 import renderer.rasterizer;
 import renderer.shaders;
 import scene.skybox;
@@ -132,7 +132,7 @@ App::App(int vw, int vh, int rw, int rh, const std::string& title,
       height(vh),
       renderWidth(rw),
       renderHeight(rh),
-      framebuffer(0, 0),
+      framebuffer(0, 0, Attachments::Depth | Attachments::Color),
       viewport(0, 0),
       scene(makeCamera(width, height, vec3(0, 2, 0)), makeLighting(),
             Skybox("resources/textures/skybox/hills_lf.png", "resources/textures/skybox/hills_rt.png",
@@ -237,7 +237,7 @@ void App::update(double elapsedTime) {
 void App::drawFrame() {
     framebuffer.clear();
     rasterizer.drawScene(framebuffer, scene);
-    viewport.upscaleFromFramebuffer(framebuffer, currentUpscalerFilter);
+    viewport.upscaleFrom(framebuffer.image(), currentUpscalerFilter);
 
     const int vx = static_cast<int>(showPanels ? leftPanelWidth : 0);
     const int vy = static_cast<int>(showPanels ? topPanelHeight : 0);

@@ -4,18 +4,20 @@ module;
 #include <cmath>
 #include <vector>
 
-export module renderer.viewport;
-import renderer.framebuffer;
+export module renderer.image;
 import math;
 
 export enum class Filter { Nearest, Bilinear };
 
-export class Viewport {
+export class Image {
    public:
     int width, height;
     std::vector<Color> pixels;
 
-    Viewport(int width, int height) : width(width), height(height), pixels(width * height) {}
+    Image(int width, int height) : width(width), height(height), pixels(width * height) {}
+
+    Color& operator[](std::size_t idx) {return pixels[idx];}
+    const Color& operator[](std::size_t idx) const {return pixels[idx];}
 
     void resize(int width, int height) {
         this->width = width;
@@ -24,13 +26,13 @@ export class Viewport {
         pixels.resize(width * height);
     }
 
-    void upscaleFromFramebuffer(const Framebuffer& framebuffer, Filter filter) {
-        if (framebuffer.width == width && framebuffer.height == height) {
-            std::copy(framebuffer.pixels.begin(), framebuffer.pixels.end(), pixels.begin());
+    void upscaleFrom(const Image& other, Filter filter) {
+        if (other.width == width && other.height == height) {
+            std::copy(other.pixels.begin(), other.pixels.end(), pixels.begin());
             return;
         }
-        const int srcWidth = framebuffer.width;
-        const int srcHeight = framebuffer.height;
+        const int srcWidth = other.width;
+        const int srcHeight = other.height;
         if (srcWidth <= 0 || srcHeight <= 0 || width <= 0 || height <= 0) return;
 
         switch (filter) {
@@ -43,7 +45,7 @@ export class Viewport {
                         const std::size_t srcRow = static_cast<std::size_t>(srcY) * srcWidth;
 
                         const int srcX = static_cast<int>((x + 0.5f) * srcWidth / width);
-                        pixels[row + x] = framebuffer.pixels[srcRow + srcX];
+                        pixels[row + x] = other.pixels[srcRow + srcX];
                     }
                 }
                 break;
@@ -66,10 +68,10 @@ export class Viewport {
                         std::size_t up = static_cast<std::size_t>(std::clamp(j, 0, srcHeight - 1));
                         std::size_t down = static_cast<std::size_t>(std::clamp(j + 1, 0, srcHeight - 1));
 
-                        Color color00 = framebuffer.pixels[up * srcWidth + left];
-                        Color color10 = framebuffer.pixels[up * srcWidth + right];
-                        Color color01 = framebuffer.pixels[down * srcWidth + left];
-                        Color color11 = framebuffer.pixels[down * srcWidth + right];
+                        Color color00 = other.pixels[up * srcWidth + left];
+                        Color color10 = other.pixels[up * srcWidth + right];
+                        Color color01 = other.pixels[down * srcWidth + left];
+                        Color color11 = other.pixels[down * srcWidth + right];
 
                         pixels[row + x] = color00 * (1 - a) * (1 - b) + color10 * a * (1 - b) + color01 * (1 - a) * b +
                                           color11 * a * b;

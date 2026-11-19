@@ -63,6 +63,9 @@ void Rasterizer::rasterizeTriangle(Framebuffer& buffer, const RasterTriangle& tr
     float base_e20p = edgeFunction(v2.position, v0.position, center);
     float base_e01p = edgeFunction(v0.position, v1.position, center);
 
+    auto& depth = buffer.depth();
+    auto& image = buffer.image();
+
     for (int py = minY; py < maxY; ++py) {
         float e12p = base_e12p;
         float e20p = base_e20p;
@@ -84,16 +87,18 @@ void Rasterizer::rasterizeTriangle(Framebuffer& buffer, const RasterTriangle& tr
             e20p -= v0.position.y - v2.position.y;
             e01p -= v1.position.y - v0.position.y;
 
-            float depth = v0.depth * u + v1.depth * v + v2.depth * w;
+            float currentDepth = v0.depth * u + v1.depth * v + v2.depth * w;
+
 
             std::size_t idx = static_cast<std::size_t>(py) * buffer.width + static_cast<std::size_t>(px);
 
-            if (depth < buffer.depth[idx])
-                buffer.depth[idx] = depth;
+            if (currentDepth < depth[idx])
+                depth[idx] = currentDepth;
             else
                 continue;
 
-            if (!hasFragmentShaders) continue;
+
+            if (!hasFragmentShaders || !buffer.hasColor()) continue;
 
             float q0 = u * v0.invW;
             float q1 = v * v1.invW;
@@ -107,14 +112,14 @@ void Rasterizer::rasterizeTriangle(Framebuffer& buffer, const RasterTriangle& tr
                 .worldPosition = v0.worldPosition * p0 + v1.worldPosition * p1 + v2.worldPosition * p2,
                 .normal = normalize(v0.normal * p0 + v1.normal * p1 + v2.normal * p2),
                 .uv = v0.texcoord * p0 + v1.texcoord * p1 + v2.texcoord * p2,
-                .depth = depth,
+                .depth = currentDepth,
             };
 
             for (const shaders::FragmentShader stage : pipeline.fragmentShaders) {
                 stage(context, frameUniforms, drawUniforms);
             }
 
-            buffer.pixels[idx] = context.color;
+            image[idx] = context.color;
         }
         base_e12p += v2.position.x - v1.position.x;
         base_e20p += v0.position.x - v2.position.x;
@@ -316,13 +321,15 @@ void Rasterizer::runScreenStages(Framebuffer& buffer, const shaders::FrameUnifor
 
     float minDepth = std::numeric_limits<float>::infinity();
     float maxDepth = -std::numeric_limits<float>::infinity();
-    for (float depth : buffer.depth) {
+    auto& depth = buffer.depth();
+    for (float depth : depth) {
         if (std::isfinite(depth)) {
             minDepth = std::min(minDepth, depth);
             maxDepth = std::max(maxDepth, depth);
         }
     }
 
+    auto& image = buffer.image();
 #pragma omp parallel for schedule(static) if (buffer.width * buffer.height >= 16384)
     for (int y = 0; y < buffer.height; y++) {
         std::size_t row = static_cast<std::size_t>(y) * buffer.width;
@@ -333,8 +340,8 @@ void Rasterizer::runScreenStages(Framebuffer& buffer, const shaders::FrameUnifor
                 .y = y,
                 .ndcX = 2.0f * (static_cast<float>(x) + 0.5f) / static_cast<float>(buffer.width) - 1.0f,
                 .ndcY = 2.0f * (static_cast<float>(y) + 0.5f) / static_cast<float>(buffer.height) - 1.0f,
-                .depth = buffer.depth[idx],
-                .color = buffer.pixels[idx],
+                .depth = depth[idx],
+                .color = image[idx],
                 .minDepth = minDepth,
                 .maxDepth = maxDepth,
             };
@@ -343,7 +350,7 @@ void Rasterizer::runScreenStages(Framebuffer& buffer, const shaders::FrameUnifor
                 input.color = stage(input, frameUniforms);
             }
 
-            buffer.pixels[idx] = input.color;
+            image[idx] = input.color;
         }
     }
 }

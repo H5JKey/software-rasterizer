@@ -12,7 +12,7 @@ module;
 
 export module app;
 import renderer.framebuffer;
-import renderer.viewport;
+import renderer.image;
 import renderer.rasterizer;
 import scene.scene;
 import scene.camera;
@@ -39,7 +39,7 @@ export class App {
     int width, height;
     int renderWidth = 320, renderHeight = 240;
     Framebuffer framebuffer;
-    Viewport viewport;
+    Image viewport;
     Filter currentUpscalerFilter = Filter::Nearest;
     Scene scene;
     Rasterizer rasterizer;

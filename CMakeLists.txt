@@ -60,7 +60,6 @@ add_executable(raster
     src/model/object.cpp
     src/app/app.cpp
     src/main.cpp
-    src/scene/camera.cpp
 )
 
 target_sources(raster
@@ -78,7 +77,7 @@ PUBLIC
         src/renderer/shaders/shaders.cppm
         src/scene/camera.cppm
         src/renderer/framebuffer.cppm
-        src/renderer/viewport.cppm
+        src/renderer/image.cppm
         src/model/material/material.cppm
         src/model/material/shaders.cppm
         src/model/mesh.cppm
