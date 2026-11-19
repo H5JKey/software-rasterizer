@@ -14,10 +14,8 @@ import scene.scene;
 import renderer.shaders;
 import scene.terrain;
 
-void Rasterizer::drawTriangle(Framebuffer& buffer, const ScreenVertexAttributes& v0, const ScreenVertexAttributes& v1,
-                              const ScreenVertexAttributes& v2, float edge012,
-                              const shaders::FrameUniforms& frameUniforms,
-                              const shaders::DrawUniforms& drawUniforms) const {
+void Rasterizer::emitTriangle(Framebuffer& buffer, const ScreenVertexAttributes& v0, const ScreenVertexAttributes& v1,
+                              const ScreenVertexAttributes& v2, float area, std::size_t drawIndex) {
     const float width = static_cast<float>(buffer.width);
     const float height = static_cast<float>(buffer.height);
 
@@ -29,22 +27,62 @@ void Rasterizer::drawTriangle(Framebuffer& buffer, const ScreenVertexAttributes&
     bboxMin.x = std::clamp(std::floor(bboxMin.x), 0.0f, width);
     bboxMin.y = std::clamp(std::floor(bboxMin.y), 0.0f, height);
 
+    const int minX = static_cast<int>(bboxMin.x);
+    const int minY = static_cast<int>(bboxMin.y);
+    const int maxX = static_cast<int>(bboxMax.x);
+    const int maxY = static_cast<int>(bboxMax.y);
+
+    if (minX >= maxX || minY >= maxY) return;
+
+    rasterTriangles.push_back(RasterTriangle{.v0 = v0,
+                                             .v1 = v1,
+                                             .v2 = v2,
+                                             .area = area,
+                                             .minX = minX,
+                                             .minY = minY,
+                                             .maxX = maxX,
+                                             .maxY = maxY,
+                                             .drawIndex = drawIndex});
+}
+
+void Rasterizer::rasterizeTriangle(Framebuffer& buffer, const RasterTriangle& triangle,
+                                   const shaders::DrawUniforms& drawUniforms,
+                                   const shaders::FrameUniforms& frameUniforms, int minX, int minY, int maxX,
+                                   int maxY) const {
+    const ScreenVertexAttributes& v0 = triangle.v0;
+    const ScreenVertexAttributes& v1 = triangle.v1;
+    const ScreenVertexAttributes& v2 = triangle.v2;
+    const float edge012 = triangle.area;
+
     const auto& pipeline = currentPipeline();
     const bool hasFragmentShaders = !pipeline.fragmentShaders.empty();
 
-    for (int py = static_cast<int>(bboxMin.y); py < static_cast<int>(bboxMax.y); ++py) {
-        for (int px = static_cast<int>(bboxMin.x); px < static_cast<int>(bboxMax.x); ++px) {
-            vec2 center(px + 0.5f, py + 0.5f);
+    vec2 center(minX + 0.5f, minY + 0.5f);
 
-            float e12p = edgeFunction(v1.position, v2.position, center);
-            float e20p = edgeFunction(v2.position, v0.position, center);
-            float e01p = edgeFunction(v0.position, v1.position, center);
+    float base_e12p = edgeFunction(v1.position, v2.position, center);
+    float base_e20p = edgeFunction(v2.position, v0.position, center);
+    float base_e01p = edgeFunction(v0.position, v1.position, center);
 
-            if (e12p * edge012 < 0.0f || e20p * edge012 < 0.0f || e01p * edge012 < 0.0f) continue;
+    for (int py = minY; py < maxY; ++py) {
+        float e12p = base_e12p;
+        float e20p = base_e20p;
+        float e01p = base_e01p;
+        for (int px = minX; px < maxX; ++px) {
+            if (e12p * edge012 < 0.0f || e20p * edge012 < 0.0f || e01p * edge012 < 0.0f) {
+                e12p -= v2.position.y - v1.position.y;
+                e20p -= v0.position.y - v2.position.y;
+                e01p -= v1.position.y - v0.position.y;
+                continue;
+            }
 
-            float u = e12p / edge012;
-            float v = e20p / edge012;
-            float w = e01p / edge012;
+            float invEdge012 = 1.0f / edge012;
+            float u = e12p * invEdge012 ;
+            float v = e20p * invEdge012;
+            float w = e01p * invEdge012;
+
+            e12p -= v2.position.y - v1.position.y;
+            e20p -= v0.position.y - v2.position.y;
+            e01p -= v1.position.y - v0.position.y;
 
             float depth = v0.depth * u + v1.depth * v + v2.depth * w;
 
@@ -77,6 +115,60 @@ void Rasterizer::drawTriangle(Framebuffer& buffer, const ScreenVertexAttributes&
             }
 
             buffer.pixels[idx] = context.color;
+        }
+        base_e12p += v2.position.x - v1.position.x;
+        base_e20p += v0.position.x - v2.position.x;
+        base_e01p += v1.position.x - v0.position.x;
+    }
+}
+
+void Rasterizer::rasterize(Framebuffer& buffer, const shaders::FrameUniforms& frameUniforms) {
+    if (rasterTriangles.empty() || buffer.width <= 0 || buffer.height <= 0) return;
+
+    const int tilesX = (buffer.width + tileSize - 1) / tileSize;
+    const int tilesY = (buffer.height + tileSize - 1) / tileSize;
+    const int tileCount = tilesX * tilesY;
+
+    if (tileTriangleIndices.size() != static_cast<std::size_t>(tileCount)) {
+        tileTriangleIndices.resize(static_cast<std::size_t>(tileCount));
+    }
+    for (auto& tile : tileTriangleIndices) tile.clear();
+
+    for (std::size_t i = 0; i < rasterTriangles.size(); ++i) {
+        const RasterTriangle& triangle = rasterTriangles[i];
+        const int tx0 = triangle.minX / tileSize;
+        const int tx1 = (triangle.maxX - 1) / tileSize;
+        const int ty0 = triangle.minY / tileSize;
+        const int ty1 = (triangle.maxY - 1) / tileSize;
+
+        for (int ty = ty0; ty <= ty1; ++ty) {
+            for (int tx = tx0; tx <= tx1; ++tx) {
+                const std::size_t tileIndex =
+                    static_cast<std::size_t>(ty) * static_cast<std::size_t>(tilesX) + static_cast<std::size_t>(tx);
+                tileTriangleIndices[tileIndex].push_back(i);
+            }
+        }
+    }
+
+#pragma omp parallel for schedule(dynamic, 1) shared(rasterTriangles, tileTriangleIndices)
+    for (int tile = 0; tile < tileCount; ++tile) {
+        const int tx = tile % tilesX;
+        const int ty = tile / tilesX;
+        const int tileMinX = tx * tileSize;
+        const int tileMinY = ty * tileSize;
+        const int tileMaxX = std::min(tileMinX + tileSize, buffer.width);
+        const int tileMaxY = std::min(tileMinY + tileSize, buffer.height);
+
+        for (const std::size_t triangleIndex : tileTriangleIndices[static_cast<std::size_t>(tile)]) {
+            const RasterTriangle& triangle = rasterTriangles[triangleIndex];
+            const int minX = std::max(triangle.minX, tileMinX);
+            const int minY = std::max(triangle.minY, tileMinY);
+            const int maxX = std::min(triangle.maxX, tileMaxX);
+            const int maxY = std::min(triangle.maxY, tileMaxY);
+            if (minX >= maxX || minY >= maxY) continue;
+
+            rasterizeTriangle(buffer, triangle, drawUniformsPool[triangle.drawIndex], frameUniforms, minX, minY, maxX,
+                              maxY);
         }
     }
 }
@@ -125,6 +217,9 @@ void Rasterizer::drawObject(Framebuffer& buffer, const Object& object, const sha
                                                  .instanceId = instance_id,
                                                  .hasTexcoords = terrain || hasTexcoords,
                                                  .terrain = terrain};
+
+        const std::size_t drawIndex = drawUniformsPool.size();
+        drawUniformsPool.push_back(drawUniforms);
 
 #pragma omp parallel for schedule(static) if (mesh.vertices.size() >= 2048)
         for (std::size_t i = 0; i < mesh.vertices.size(); i++) {
@@ -187,8 +282,7 @@ void Rasterizer::drawObject(Framebuffer& buffer, const Object& object, const sha
                         edgeFunction(attributes[0].position, attributes[1].position, attributes[2].position);
                     if (area < 1e-6f) continue;
 
-                    drawTriangle(buffer, attributes[0], attributes[1], attributes[2], area, frameUniforms,
-                                 drawUniforms);
+                    emitTriangle(buffer, attributes[0], attributes[1], attributes[2], area, drawIndex);
                 }
                 continue;
             } else {
@@ -210,7 +304,7 @@ void Rasterizer::drawObject(Framebuffer& buffer, const Object& object, const sha
                 const float area = edgeFunction(attributes[0].position, attributes[1].position, attributes[2].position);
                 if (area < 1e-6f) continue;  // Degenerate triangle or back face.
 
-                drawTriangle(buffer, attributes[0], attributes[1], attributes[2], area, frameUniforms, drawUniforms);
+                emitTriangle(buffer, attributes[0], attributes[1], attributes[2], area, drawIndex);
             }
         }
     }
@@ -268,11 +362,16 @@ void Rasterizer::drawScene(Framebuffer& buffer, const Scene& scene) {
                                                .zFar = scene.camera.zFar,
                                                .time = scene.time};
 
+    rasterTriangles.clear();
+    drawUniformsPool.clear();
+
     for (const auto& object : scene.getAllObjects()) {
         drawObject(buffer, object, frameUniforms, scene.camera.zNear);
     }
 
     drawObject(buffer, scene.terrain.asObject(), frameUniforms, scene.camera.zNear, &scene.terrain);
+
+    rasterize(buffer, frameUniforms);
 
     runScreenStages(buffer, frameUniforms);
 }
