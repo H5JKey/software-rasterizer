@@ -57,19 +57,32 @@ void Rasterizer::rasterizeTriangle(Framebuffer& buffer, const RasterTriangle& tr
     const auto& pipeline = currentPipeline();
     const bool hasFragmentShaders = !pipeline.fragmentShaders.empty();
 
+    vec2 center(minX + 0.5f, minY + 0.5f);
+
+    float base_e12p = edgeFunction(v1.position, v2.position, center);
+    float base_e20p = edgeFunction(v2.position, v0.position, center);
+    float base_e01p = edgeFunction(v0.position, v1.position, center);
+
     for (int py = minY; py < maxY; ++py) {
+        float e12p = base_e12p;
+        float e20p = base_e20p;
+        float e01p = base_e01p;
         for (int px = minX; px < maxX; ++px) {
-            vec2 center(px + 0.5f, py + 0.5f);
+            if (e12p * edge012 < 0.0f || e20p * edge012 < 0.0f || e01p * edge012 < 0.0f) {
+                e12p -= v2.position.y - v1.position.y;
+                e20p -= v0.position.y - v2.position.y;
+                e01p -= v1.position.y - v0.position.y;
+                continue;
+            }
 
-            float e12p = edgeFunction(v1.position, v2.position, center);
-            float e20p = edgeFunction(v2.position, v0.position, center);
-            float e01p = edgeFunction(v0.position, v1.position, center);
+            float invEdge012 = 1.0f / edge012;
+            float u = e12p * invEdge012 ;
+            float v = e20p * invEdge012;
+            float w = e01p * invEdge012;
 
-            if (e12p * edge012 < 0.0f || e20p * edge012 < 0.0f || e01p * edge012 < 0.0f) continue;
-
-            float u = e12p / edge012;
-            float v = e20p / edge012;
-            float w = e01p / edge012;
+            e12p -= v2.position.y - v1.position.y;
+            e20p -= v0.position.y - v2.position.y;
+            e01p -= v1.position.y - v0.position.y;
 
             float depth = v0.depth * u + v1.depth * v + v2.depth * w;
 
@@ -103,6 +116,9 @@ void Rasterizer::rasterizeTriangle(Framebuffer& buffer, const RasterTriangle& tr
 
             buffer.pixels[idx] = context.color;
         }
+        base_e12p += v2.position.x - v1.position.x;
+        base_e20p += v0.position.x - v2.position.x;
+        base_e01p += v1.position.x - v0.position.x;
     }
 }
 
