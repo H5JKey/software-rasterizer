@@ -355,7 +355,7 @@ void Rasterizer::runScreenStages(Framebuffer& buffer, const shaders::FrameUnifor
     }
 }
 
-void Rasterizer::drawScene(Framebuffer& buffer, const Scene& scene, const Camera& camera) {
+void Rasterizer::drawScene(Framebuffer& buffer, const Scene& scene, const Camera& camera, const ShadowMap* shadowMap) {
     const mat4 VP = camera.getPerspectiveMatrix() * camera.getLookAtMatrix();
     const mat4 inverseVP = VP.inverse();
     const vec3 cameraPosition = camera.getEye();
@@ -365,6 +365,7 @@ void Rasterizer::drawScene(Framebuffer& buffer, const Scene& scene, const Camera
                                                .cameraPosition = &cameraPosition,
                                                .lighting = &scene.lighting,
                                                .skybox = &scene.skybox,
+                                               .shadowMap = shadowMap,
                                                .zNear = camera.zNear,
                                                .zFar = camera.zFar,
                                                .time = scene.time};
@@ -440,7 +441,6 @@ ShadowMap Rasterizer::buildShadowMap(int resolution, const Scene& scene) {
     shadowMap.lightVP = proj * view;
 
     renderShadowMap(shadowMap, scene);
-    shadowMap.enabled = true;
     return shadowMap;
 }
 

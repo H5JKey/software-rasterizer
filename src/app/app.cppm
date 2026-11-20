@@ -47,6 +47,8 @@ export class App {
     std::array<float, 512> fpsHistory;
     std::size_t frame = 0;
     bool followTerrain = false;
+    bool showShadows = true;
+    bool useAA = false;
     Camera camera;
     Camera savedCamera;
     ShadowMap shadowMap;

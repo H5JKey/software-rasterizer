@@ -74,7 +74,7 @@ export class Rasterizer {
         transformedTexcoords.reserve(1024);
     }
 
-    void drawScene(Framebuffer& buffer, const Scene& scene, const Camera& camera);
+    void drawScene(Framebuffer& buffer, const Scene& scene, const Camera& camera, const ShadowMap* shadowMap);
 
     ShadowMap buildShadowMap(int resolution, const Scene& scene);
 

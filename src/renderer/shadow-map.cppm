@@ -11,9 +11,8 @@ import math;
 export class ShadowMap {
    public:
     mat4 lightVP;
-    float bias = 1e-3f;
+    float bias = 0.01f;
     int resolution;
-    bool enabled = false;
     Framebuffer buffer;
 
     ShadowMap() : resolution(0), buffer(0, 0, Framebuffer::Attachments::Depth) {}

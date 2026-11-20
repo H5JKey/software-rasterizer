@@ -73,7 +73,7 @@ export class Terrain {
                                              .textures = {&TextureWithMipLevels::loadFromFile(grass),
                                                           &TextureWithMipLevels::loadFromFile(stone)},
                                              .shader = shaders::TerrainTexturesMaterialShader,
-                                         }) {
+                                         }, Object::Properties::castShadow) {
         terrainObject.addInstance();
     }
 

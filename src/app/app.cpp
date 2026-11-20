@@ -47,9 +47,9 @@ Camera makeCamera(int width, int height, vec3 eye = vec3(0, 0, 0)) {
 
 Scene::Lighting makeLighting() {
     Scene::Lighting lighting;
-    lighting.ambientColor = Color(0.15, 0.15, 0.15, 1);
+    lighting.ambientColor = Color(0.2, 0.2, 0.2, 1);
     lighting.light.color = Color(1, 1, 1, 1);
-    lighting.light.direction = normalize(vec3(1, 1, 0));
+    lighting.light.direction = normalize(vec3(0.7, 1, 0.5));
     return lighting;
 }
 
@@ -139,7 +139,7 @@ App::App(int vw, int vh, int rw, int rh, const std::string& title,
             Skybox("resources/textures/skybox/hills_lf.png", "resources/textures/skybox/hills_rt.png",
                    "resources/textures/skybox/hills_ft.png", "resources/textures/skybox/hills_bk.png",
                    "resources/textures/skybox/hills_up.jpg", "resources/textures/skybox/hills_dn.png"),
-            Terrain(42, "resources/textures/Grass_09-256x256.png", "resources/textures/Grass_11-256x256.png")),
+            Terrain(67+42, "resources/textures/Grass_09-256x256.png", "resources/textures/Grass_11-256x256.png")),
       camera(makeCamera(width, height, vec3(0, 2, 0))),
       savedCamera(makeCamera(width, height, vec3(0, scene.terrain.heightScale, 0))) {
     glfwSetErrorCallback(
@@ -190,7 +190,18 @@ void App::buildScene() {
     scene.addObject(
         Object{Mesh::loadFromFile("resources/Bunny.obj"), std::move(material), Object::Properties::castShadow});
     scene.addObjectInstance(0);
-    scene.updateObjectTransform(0, 0, translation(0, 5, 0) * scale(2, 2, 2));
+    scene.updateObjectTransform(0, 0, translation(0, 7.5, 0) * scale(2, 2, 2));
+
+    Material material2{
+        .baseColor = Color(1, 1, 1, 1),
+        .textures = {&TextureWithMipLevels::loadFromFile("resources/textures/concrete.jpg")},
+        .shader = shaders::defaultMaterialShader,
+    };
+
+    scene.addObject(
+        Object{Mesh::loadFromFile("resources/Plane.obj"), std::move(material2), Object::Properties::castShadow});
+    scene.addObjectInstance(1);
+    scene.updateObjectTransform(1, 0, translation(0, 6, 0) * scale(15, 15, 15));
 }
 
 void App::run() {
@@ -244,7 +255,7 @@ void App::update(double elapsedTime) {
 
 void App::drawFrame() {
     framebuffer.clear();
-    rasterizer.drawScene(framebuffer, scene, camera);
+    rasterizer.drawScene(framebuffer, scene, camera, showShadows ? &shadowMap : nullptr);
     viewport.upscaleFrom(framebuffer.image(), currentUpscalerFilter);
 
     const int vx = static_cast<int>(showPanels ? leftPanelWidth : 0);
@@ -296,6 +307,11 @@ void App::drawUI() {
             }
             if (changed) {
                 rasterizer.setPass(static_cast<std::size_t>(modeInt));
+            }
+            ImGui::Separator();
+            if (modeInt == 0) {
+                ImGui::Checkbox("Show shadows", &showShadows);
+                ImGui::Checkbox("Anti aliasing", &useAA);
             }
 
             ImGui::SeparatorText("Camera");

@@ -17,7 +17,7 @@ struct Pipeline {
     std::span<const ScreenShader> screenShaders{};
 };
 
-inline constexpr FragmentShader lambertStages[] = {applyMaterialShader, lambertShader};
+inline constexpr FragmentShader lightingStages[] = {applyMaterialShader, shadowMapShader};
 inline constexpr FragmentShader unlitStages[] = {applyMaterialShader};
 inline constexpr FragmentShader normalsStages[] = {normalsShader};
 inline constexpr FragmentShader texcoordsStages[] = {texcoordsShader};
@@ -27,7 +27,7 @@ inline constexpr ScreenShader skyboxStages[] = {skyboxShader};
 inline constexpr ScreenShader depthStages[] = {normalizeDepthShader};
 
 inline constexpr Pipeline passes[] = {
-    {.name = "Lambert", .fragmentShaders = lambertStages, .screenShaders = skyboxStages},
+    {.name = "Main", .fragmentShaders = lightingStages, .screenShaders = skyboxStages},
     {.name = "Unlit", .fragmentShaders = unlitStages},
     {.name = "Depth", .screenShaders = depthStages},
     {.name = "Normals", .fragmentShaders = normalsStages},

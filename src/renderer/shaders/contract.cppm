@@ -8,6 +8,7 @@ import model.material;
 import scene.scene;
 import scene.skybox;
 import scene.terrain;
+import renderer.shadowmap;
 
 export namespace shaders {
 
@@ -17,6 +18,7 @@ struct FrameUniforms {
     const vec3* cameraPosition = nullptr;
     const Scene::Lighting* lighting = nullptr;
     const Skybox* skybox = nullptr;
+    const ShadowMap* shadowMap = nullptr;
     float zNear = 0.0f;
     float zFar = 1.0f;
     float time = 0.0f;

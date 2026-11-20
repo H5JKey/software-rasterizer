@@ -57,13 +57,48 @@ inline constexpr VertexShader terrainVertexShader = [](const VertexShaderInput& 
     };
 };
 
-inline constexpr FragmentShader lambertShader = [](ShaderContext& context, const FrameUniforms& frame,
+inline constexpr FragmentShader shadowMapShader = [](ShaderContext& context, const FrameUniforms& frame,
                                                    const DrawUniforms& draw) {
-    Color color = context.color;
+    float shadow = 1.0f;
+
+    if (frame.shadowMap) {
+        const ShadowMap& sm = *frame.shadowMap;
+
+        const vec4 lightClip = sm.lightVP * vec4(context.worldPosition.x, context.worldPosition.y,
+                                                 context.worldPosition.z, 1.0f);
+        const float invW = 1.0f / lightClip.w;
+        const vec3 ndc = vec3(lightClip.x * invW, lightClip.y * invW, lightClip.z * invW);
+        
+        if (ndc.x >= -1.0f && ndc.x <= 1.0f && ndc.y >= -1.0f && ndc.y <= 1.0f) {
+            
+            vec2 texel = vec2(1.0f / static_cast<float>(sm.buffer.width), 1.0f / static_cast<float>(sm.buffer.height));
+            float lit = 0.0f;
+            for (int dy = -2; dy <= 2; ++dy) {
+                for (int dx = -2; dx <= 2; ++dx) {
+                    float sampleNdcX = ndc.x + static_cast<float>(dx) * texel.x;
+                    float sampleNdcY = ndc.y + static_cast<float>(dy) * texel.y;
+                    
+                    int x = std::clamp(static_cast<int>((sampleNdcX + 1.0f) * 0.5f * static_cast<float>(sm.buffer.width)), 0, sm.buffer.width - 1);
+                    int y = std::clamp(static_cast<int>((sampleNdcY + 1.0f) * 0.5f * static_cast<float>(sm.buffer.height)), 0, sm.buffer.height - 1);
+                    
+                    const float closest = sm.buffer.depth()[static_cast<std::size_t>(y) * sm.buffer.width + x];
+                    
+                    lit += (ndc.z - sm.bias > closest) ? 0.0f : 1.0f;
+                }
+            }
+            shadow = lit / 25.0f;
+        }
+    }
 
     const auto& lighting = *frame.lighting;
+
+    const float ndotl = std::max(0.f, dot(context.normal, lighting.light.direction));
+    
     const Color factor =
-        lighting.ambientColor + lighting.light.color * std::max(0.f, dot(context.normal, lighting.light.direction));
+        lighting.ambientColor +
+        lighting.light.color * ndotl * shadow;
+
+    Color color = context.color;
     color.r *= factor.r;
     color.g *= factor.g;
     color.b *= factor.b;
