@@ -10,7 +10,11 @@ import model.material;
 import model.mesh;
 import math;
 
-Object::Object(Mesh mesh, Material material) : mesh(std::move(mesh)), material(std::move(material)) {}
+Object::Object(Mesh mesh, Material material, Properties properties)
+    : castShadow_(hasFlag(properties, Properties::castShadow)), mesh(std::move(mesh)), material(std::move(material)) {}
+
+Object::Object(Mesh mesh, Material material)
+    : castShadow_(false), mesh(std::move(mesh)), material(std::move(material)) {}
 
 Object& Object::addInstance(mat4 modelMatrix) {
     inverseTransposeModelMatrices.push_back(modelMatrix.upperLeft<3>().inverse().transpose());

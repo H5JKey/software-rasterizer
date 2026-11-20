@@ -178,13 +178,14 @@ Mesh Mesh::loadFromFile(const std::filesystem::path& filename) {
     tinyobj_shapes_free(shapes, num_shapes);
     tinyobj_materials_free(materials, num_materials);
 
+    m.aabb_ = m.buildAABB();
     m.normalize();
     if (m.vertices.size() != m.normals.size()) m.buildNormals();
     return m;
 }
 
 void Mesh::normalize() {
-    struct AABB aabb = buildAABB();
+    AABB aabb = this->aabb();
     const vec3 size = aabb.size();
     const float maxSize = std::max(size.x, std::max(size.y, size.z));
     if (maxSize <= 0.0) return;

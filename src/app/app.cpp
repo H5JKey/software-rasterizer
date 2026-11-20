@@ -35,13 +35,14 @@ import renderer.shaders;
 import scene.skybox;
 import scene.terrain;
 import app.theme;
+import renderer.shadowmap;
 
 namespace {
 
 Camera makeCamera(int width, int height, vec3 eye = vec3(0, 0, 0)) {
     constexpr float pi = std::numbers::pi_v<float>;
     return Camera(std::move(eye), 0.0f, 0.0f, 90.0f * pi / 180.0f,
-                  static_cast<float>(width) / static_cast<float>(height), 0.1f, 100.0f);
+                  static_cast<float>(width) / static_cast<float>(height), 0.0f, 100.0f);
 }
 
 Scene::Lighting makeLighting() {
@@ -91,13 +92,13 @@ void App::handleKeyboard(GLFWwindow* window, int key, int /*scancode*/, int acti
             if (key == GLFW_KEY_W || key == GLFW_KEY_A || key == GLFW_KEY_S || key == GLFW_KEY_D) {
                 const float speed = 0.1f;
                 if (key == GLFW_KEY_W) {
-                    app->scene.camera.velocity += vec3(0, 0, -speed);
+                    app->camera.velocity += vec3(0, 0, -speed);
                 } else if (key == GLFW_KEY_S) {
-                    app->scene.camera.velocity += vec3(0, 0, speed);
+                    app->camera.velocity += vec3(0, 0, speed);
                 } else if (key == GLFW_KEY_A) {
-                    app->scene.camera.velocity += vec3(-speed, 0, 0);
+                    app->camera.velocity += vec3(-speed, 0, 0);
                 } else if (key == GLFW_KEY_D) {
-                    app->scene.camera.velocity += vec3(speed, 0, 0);
+                    app->camera.velocity += vec3(speed, 0, 0);
                 }
             }
         }
@@ -119,26 +120,27 @@ void App::handleCursor(GLFWwindow* window, double xpos, double ypos) {
     app->mouseInfo.prevMousePosX = xpos;
     app->mouseInfo.prevMousePosY = ypos;
 
-    app->scene.camera.yaw -= app->mouseInfo.sensetive * dx;
-    app->scene.camera.pitch -= app->mouseInfo.sensetive * dy;
+    app->camera.yaw -= app->mouseInfo.sensetive * dx;
+    app->camera.pitch -= app->mouseInfo.sensetive * dy;
 
     const float limit = std::numbers::pi_v<float> / 2.0f - 0.01f;
-    app->scene.camera.pitch = std::clamp(app->scene.camera.pitch, -limit, limit);
+    app->camera.pitch = std::clamp(app->camera.pitch, -limit, limit);
 }
 
 App::App(int vw, int vh, int rw, int rh, const std::string& title,
-         const std::optional<std::filesystem::path>& savedHeightMapFilename)
+         const std::optional<std::filesystem::path>& debugMapsDirectory)
     : width(vw),
       height(vh),
       renderWidth(rw),
       renderHeight(rh),
-      framebuffer(0, 0, Attachments::Depth | Attachments::Color),
+      framebuffer(0, 0, Framebuffer::Attachments::Depth | Framebuffer::Attachments::Color),
       viewport(0, 0),
-      scene(makeCamera(width, height, vec3(0, 2, 0)), makeLighting(),
+      scene(makeLighting(),
             Skybox("resources/textures/skybox/hills_lf.png", "resources/textures/skybox/hills_rt.png",
                    "resources/textures/skybox/hills_ft.png", "resources/textures/skybox/hills_bk.png",
                    "resources/textures/skybox/hills_up.jpg", "resources/textures/skybox/hills_dn.png"),
             Terrain(42, "resources/textures/Grass_09-256x256.png", "resources/textures/Grass_11-256x256.png")),
+      camera(makeCamera(width, height, vec3(0, 2, 0))),
       savedCamera(makeCamera(width, height, vec3(0, scene.terrain.heightScale, 0))) {
     glfwSetErrorCallback(
         [](int error, const char* description) { std::println(stderr, "GLFW error {}: {}", error, description); });
@@ -146,7 +148,6 @@ App::App(int vw, int vh, int rw, int rh, const std::string& title,
     if (!glfwInit()) {
         throw std::runtime_error("Failed to initialize GLFW");
     }
-    if (savedHeightMapFilename) scene.terrain.getHeightMap().saveToPng(256, 256, *savedHeightMapFilename);
 
     glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
     window = glfwCreateWindow(width, height, title.c_str(), nullptr, nullptr);
@@ -171,6 +172,12 @@ App::App(int vw, int vh, int rw, int rh, const std::string& title,
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init(nullptr);
     buildScene();
+
+    shadowMap = rasterizer.buildShadowMap(2048, scene);
+    if (debugMapsDirectory) {
+        scene.terrain.getHeightMap().saveToPng(256, 256, *debugMapsDirectory / "height_map.png");
+        shadowMap.saveToPng(*debugMapsDirectory / "shadow_map.png");
+    }
 }
 
 void App::buildScene() {
@@ -180,7 +187,8 @@ void App::buildScene() {
         .shader = shaders::defaultMaterialShader,
     };
 
-    scene.addObject(Object{Mesh::loadFromFile("resources/Bunny.obj"), std::move(material)});
+    scene.addObject(
+        Object{Mesh::loadFromFile("resources/Bunny.obj"), std::move(material), Object::Properties::castShadow});
     scene.addObjectInstance(0);
     scene.updateObjectTransform(0, 0, translation(0, 5, 0) * scale(2, 2, 2));
 }
@@ -220,23 +228,23 @@ void App::update(double elapsedTime) {
     }
     if (viewport.width != viewPortWidth || viewport.height != viewPortHeight) {
         viewport.resize(viewPortWidth, viewPortHeight);
-        scene.camera.aspect = static_cast<float>(viewport.width) / static_cast<float>(viewport.height);
+        camera.aspect = static_cast<float>(viewport.width) / static_cast<float>(viewport.height);
     }
     if (framebuffer.width != renderWidth || framebuffer.height != renderHeight) {
         framebuffer.resize(renderWidth, renderHeight);
     }
     if (followTerrain) {
-        scene.camera.yaw = 0;
-        scene.camera.pitch = 0;
-        scene.camera.velocity += vec3(0, 0, -1);
+        camera.yaw = 0;
+        camera.pitch = 0;
+        camera.velocity += vec3(0, 0, -1);
     }
-
-    scene.update(elapsedTime);
+    camera.update(elapsedTime);
+    scene.update(camera, elapsedTime);
 }
 
 void App::drawFrame() {
     framebuffer.clear();
-    rasterizer.drawScene(framebuffer, scene);
+    rasterizer.drawScene(framebuffer, scene, camera);
     viewport.upscaleFrom(framebuffer.image(), currentUpscalerFilter);
 
     const int vx = static_cast<int>(showPanels ? leftPanelWidth : 0);
@@ -291,11 +299,11 @@ void App::drawUI() {
             }
 
             ImGui::SeparatorText("Camera");
-            ImGui::SliderFloat("Fov", &scene.camera.fov, 0.05f, 3.14f, "%.2f");
-            ImGui::SliderFloat("ZNear", &scene.camera.zNear, 0.1, 20.0, "%.1f");
-            ImGui::SliderFloat("ZFar", &scene.camera.zFar, 20.0, 100.0f, "%.1f");
+            ImGui::SliderFloat("Fov", &camera.fov, 0.05f, 3.14f, "%.2f");
+            ImGui::SliderFloat("ZNear", &camera.zNear, 0.0, 20.0, "%.1f");
+            ImGui::SliderFloat("ZFar", &camera.zFar, 20.0, 100.0f, "%.1f");
             if (ImGui::Checkbox("Follow terrain", &followTerrain)) {
-                std::swap(savedCamera, scene.camera);
+                std::swap(savedCamera, camera);
             }
 
             ImGui::SeparatorText("Render");

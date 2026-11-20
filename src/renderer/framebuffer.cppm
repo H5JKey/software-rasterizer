@@ -1,37 +1,26 @@
 module;
 #include <algorithm>
+#include <cassert>
 #include <cstddef>
 #include <limits>
-#include <vector>
-#include <cassert>
 #include <utility>
+#include <vector>
 
 export module renderer.framebuffer;
 
 import math;
 import renderer.image;
 
-
-export enum class Attachments : unsigned{ 
-    Color = 1u<<0, 
-    Depth = 1u<<1 
-};
-
-export constexpr Attachments operator|(Attachments a, Attachments b) noexcept {
-    return static_cast<Attachments>(std::to_underlying(a) | std::to_underlying(b));
-}
-
-export constexpr Attachments operator&(Attachments a, Attachments b) noexcept {
-    return static_cast<Attachments>(std::to_underlying(a) & std::to_underlying(b));
-}
-
-export constexpr bool hasFlag(Attachments value, Attachments flag) noexcept {
-    return (std::to_underlying(value) & std::to_underlying(flag)) != 0;
-}
-
 export class Framebuffer {
     bool hasDepth_, hasColor_;
+
    public:
+    enum class Attachments : unsigned { Color = 1u << 0, Depth = 1u << 1 };
+
+    static constexpr bool hasFlag(Framebuffer::Attachments value, Framebuffer::Attachments flag) noexcept {
+        return (std::to_underlying(value) & std::to_underlying(flag)) != 0;
+    }
+
     int width, height;
     Image image_;
     std::vector<float> depth_;
@@ -47,29 +36,42 @@ export class Framebuffer {
     void resize(int width, int height) {
         this->width = width;
         this->height = height;
-        if (hasColor_)
-            image_.resize(width, height);
-        if (hasDepth_)
-            depth_.resize(width * height);
+        if (hasColor_) image_.resize(width, height);
+        if (hasDepth_) depth_.assign(static_cast<std::size_t>(width) * height, std::numeric_limits<float>::infinity());
     }
 
-    bool hasColor() const noexcept {return hasColor_;}
-    bool hasDepth() const noexcept {return hasDepth_;}
+    bool hasColor() const noexcept { return hasColor_; }
+    bool hasDepth() const noexcept { return hasDepth_; }
 
     Image& image() {
-        assert(hasColor_, "image() called without color attachment");
+        assert(hasColor_ && "image() called without color attachment");
         return image_;
-    
+    }
+
+    const Image& image() const {
+        assert(hasColor_ && "image() called without color attachment");
+        return image_;
     }
     std::vector<float>& depth() {
-        assert(hasColor_, "depth() called without depth attachment");
+        assert(hasDepth_ && "depth() called without depth attachment");
+        return depth_;
+    }
+
+    const std::vector<float>& depth() const {
+        assert(hasDepth_ && "depth() called without depth attachment");
         return depth_;
     }
 
     void clear() {
-        if (hasColor_)
-            image_.clear();
-        if (hasDepth_)
-            std::fill(depth_.begin(), depth_.end(), std::numeric_limits<float>::infinity());
+        if (hasColor_) image_.clear();
+        if (hasDepth_) std::fill(depth_.begin(), depth_.end(), std::numeric_limits<float>::infinity());
     }
 };
+
+export constexpr Framebuffer::Attachments operator|(Framebuffer::Attachments a, Framebuffer::Attachments b) noexcept {
+    return static_cast<Framebuffer::Attachments>(std::to_underlying(a) | std::to_underlying(b));
+}
+
+export constexpr Framebuffer::Attachments operator&(Framebuffer::Attachments a, Framebuffer::Attachments b) noexcept {
+    return static_cast<Framebuffer::Attachments>(std::to_underlying(a) & std::to_underlying(b));
+}

@@ -28,7 +28,6 @@ export class Terrain {
     Perlin2D heightMap;
     Object terrainObject;
 
-
     Mesh buildGeometry() const {
         Mesh geometry;
         std::size_t n = std::max(resolution, 1);
@@ -83,9 +82,7 @@ export class Terrain {
         return heightMap.sample(p) * heightScale;
     }
 
-    const Perlin2D& getHeightMap() const {
-        return heightMap;
-    }
+    const Perlin2D& getHeightMap() const { return heightMap; }
 
     const Object& asObject() const noexcept { return terrainObject; }
 

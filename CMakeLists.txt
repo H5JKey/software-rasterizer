@@ -90,6 +90,7 @@ PUBLIC
         src/scene/skybox.cppm
         src/utils/perlin-noise.cppm
         src/scene/terrain.cppm
+        src/renderer/shadow-map.cppm
 
 )
 

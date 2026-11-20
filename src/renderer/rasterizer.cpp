@@ -13,6 +13,7 @@ import math;
 import scene.scene;
 import renderer.shaders;
 import scene.terrain;
+import scene.camera;
 
 void Rasterizer::emitTriangle(Framebuffer& buffer, const ScreenVertexAttributes& v0, const ScreenVertexAttributes& v1,
                               const ScreenVertexAttributes& v2, float area, std::size_t drawIndex) {
@@ -79,7 +80,7 @@ void Rasterizer::rasterizeTriangle(Framebuffer& buffer, const RasterTriangle& tr
             }
 
             float invEdge012 = 1.0f / edge012;
-            float u = e12p * invEdge012 ;
+            float u = e12p * invEdge012;
             float v = e20p * invEdge012;
             float w = e01p * invEdge012;
 
@@ -89,14 +90,12 @@ void Rasterizer::rasterizeTriangle(Framebuffer& buffer, const RasterTriangle& tr
 
             float currentDepth = v0.depth * u + v1.depth * v + v2.depth * w;
 
-
             std::size_t idx = static_cast<std::size_t>(py) * buffer.width + static_cast<std::size_t>(px);
 
             if (currentDepth < depth[idx])
                 depth[idx] = currentDepth;
             else
                 continue;
-
 
             if (!hasFragmentShaders || !buffer.hasColor()) continue;
 
@@ -355,30 +354,101 @@ void Rasterizer::runScreenStages(Framebuffer& buffer, const shaders::FrameUnifor
     }
 }
 
-void Rasterizer::drawScene(Framebuffer& buffer, const Scene& scene) {
-    const mat4 VP = scene.camera.getPerspectiveMatrix() * scene.camera.getLookAtMatrix();
+void Rasterizer::drawScene(Framebuffer& buffer, const Scene& scene, const Camera& camera) {
+    const mat4 VP = camera.getPerspectiveMatrix() * camera.getLookAtMatrix();
     const mat4 inverseVP = VP.inverse();
-    const vec3 cameraPosition = scene.camera.getEye();
+    const vec3 cameraPosition = camera.getEye();
 
     const shaders::FrameUniforms frameUniforms{.VP = &VP,
                                                .inverseVP = &inverseVP,
                                                .cameraPosition = &cameraPosition,
                                                .lighting = &scene.lighting,
                                                .skybox = &scene.skybox,
-                                               .zNear = scene.camera.zNear,
-                                               .zFar = scene.camera.zFar,
+                                               .zNear = camera.zNear,
+                                               .zFar = camera.zFar,
                                                .time = scene.time};
 
     rasterTriangles.clear();
     drawUniformsPool.clear();
 
     for (const auto& object : scene.getAllObjects()) {
-        drawObject(buffer, object, frameUniforms, scene.camera.zNear);
+        drawObject(buffer, object, frameUniforms, camera.zNear);
     }
 
-    drawObject(buffer, scene.terrain.asObject(), frameUniforms, scene.camera.zNear, &scene.terrain);
+    drawObject(buffer, scene.terrain.asObject(), frameUniforms, camera.zNear, &scene.terrain);
 
     rasterize(buffer, frameUniforms);
 
     runScreenStages(buffer, frameUniforms);
+}
+
+ShadowMap Rasterizer::buildShadowMap(int resolution, const Scene& scene) {
+    constexpr float inf = std::numeric_limits<float>::infinity();
+
+    AABB bounds{.min = vec3(inf, inf, inf), .max = vec3(-inf, -inf, -inf)};
+    bool hasCasters = false;
+
+    for (const Object& object : scene.getAllObjects()) {
+        if (!object.castShadow()) continue;
+        const AABB local = object.mesh.aabb();
+
+        for (const mat4& M : object.getModel()) {
+            hasCasters = true;
+            for (const vec3& corner : local.corners()) {
+                const vec4 w = M * vec4(corner.x, corner.y, corner.z, 1.0f);
+                bounds.min = min(bounds.min, vec3(w.x, w.y, w.z));
+                bounds.max = max(bounds.max, vec3(w.x, w.y, w.z));
+            }
+        }
+    }
+
+    ShadowMap shadowMap(resolution);
+
+    if (!hasCasters) return shadowMap;
+
+    const vec3 direction = normalize(scene.lighting.light.direction);
+    const vec3 up = (std::abs(direction.y) > 0.99f) ? vec3(0, 0, 1) : vec3(0, 1, 0);
+
+    const vec3 center = bounds.center();
+
+    const float radius = length(bounds.size()) * 0.5f;
+    const float margin = 0.05f * radius;
+
+    const vec3 eye = center - direction * (2.0f * radius + 1.0f);
+
+    const mat4 view = lookAt(eye, -direction, up);
+
+    vec3 vmin(inf, inf, inf);
+    vec3 vmax(-inf, -inf, -inf);
+
+    for (const vec3& corner : bounds.corners()) {
+        const vec4 v = view * vec4(corner.x, corner.y, corner.z, 1.0f);
+        vmin = min(vmin, vec3(v.x, v.y, v.z));
+        vmax = max(vmax, vec3(v.x, v.y, v.z));
+    }
+
+    const float zNear = std::max(0.01f, -vmax.z - margin);
+    const float zFar = std::max(zNear + 1e-3f, -vmin.z + margin);
+
+    const mat4 proj = orthographic(vmin.x - margin, vmax.x + margin, vmin.y - margin, vmax.y + margin, zNear, zFar);
+
+    shadowMap.lightVP = proj * view;
+
+    renderShadowMap(shadowMap, scene);
+    shadowMap.enabled = true;
+    return shadowMap;
+}
+
+void Rasterizer::renderShadowMap(ShadowMap& shadowMap, const Scene& scene) {
+    shaders::FrameUniforms frame{
+        .VP = &shadowMap.lightVP,
+        .lighting = &scene.lighting,
+        .zNear = 0.0f,
+        .zFar = 1.0f,
+    };
+    shadowMap.buffer.clear();
+    for (const auto& object : scene.getAllObjects()) {
+        if (object.castShadow()) drawObject(shadowMap.buffer, object, frame, 0.0f);
+    }
+    rasterize(shadowMap.buffer, frame);
 }

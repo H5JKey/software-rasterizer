@@ -80,6 +80,7 @@ struct Matrix {
                     pivot = row;
                 }
             }
+
             if (maxAbs < 1e-6) throw std::runtime_error("matrix is singular or near-singular");
             if (pivot != col) {
                 for (std::size_t j = 0; j < N; ++j) {
@@ -105,6 +106,7 @@ struct Matrix {
         }
         return result;
     }
+
     template <std::size_t M>
     constexpr Matrix<M> upperLeft() const {
         Matrix<M> result;

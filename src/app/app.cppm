@@ -6,9 +6,9 @@ module;
 #include <GLFW/glfw3.h>
 
 #include <chrono>
+#include <filesystem>
 #include <string>
 #include <vector>
-#include <filesystem>
 
 export module app;
 import renderer.framebuffer;
@@ -19,6 +19,7 @@ import scene.camera;
 import model.mesh;
 import model.material;
 import model.texture;
+import renderer.shadowmap;
 import math;
 
 export class App {
@@ -46,7 +47,9 @@ export class App {
     std::array<float, 512> fpsHistory;
     std::size_t frame = 0;
     bool followTerrain = false;
+    Camera camera;
     Camera savedCamera;
+    ShadowMap shadowMap;
 
     struct MouseInfo {
         double prevMousePosX, prevMousePosY;
@@ -63,7 +66,8 @@ export class App {
     void drawFrame();
 
    public:
-    App(int vw, int vh, int rw, int rh, const std::string& title, const std::optional<std::filesystem::path>& savedHeightMapFilename);
+    App(int vw, int vh, int rw, int rh, const std::string& title,
+        const std::optional<std::filesystem::path>& debugMapsDirectory);
     void run();
     ~App();
 };

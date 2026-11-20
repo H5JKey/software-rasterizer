@@ -59,7 +59,6 @@ inline constexpr VertexShader terrainVertexShader = [](const VertexShaderInput& 
 
 inline constexpr FragmentShader lambertShader = [](ShaderContext& context, const FrameUniforms& frame,
                                                    const DrawUniforms& draw) {
-    const auto& material = *draw.material;
     Color color = context.color;
 
     const auto& lighting = *frame.lighting;

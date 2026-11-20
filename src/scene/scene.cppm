@@ -30,7 +30,6 @@ export class Scene {
         Color ambientColor;
     };
     Skybox skybox;
-    Camera camera;
     Terrain terrain;
 
     void addObject(Object object) {
@@ -61,10 +60,9 @@ export class Scene {
 
     Lighting lighting;
     float time = 0.0f;
-    Scene(Camera camera, Lighting lighting, Skybox skybox, Terrain terrain, std::vector<Object> objects = {})
+    Scene(Lighting lighting, Skybox skybox, Terrain terrain, std::vector<Object> objects = {})
         : objects(std::move(objects)),
           skybox(std::move(skybox)),
-          camera(std::move(camera)),
           terrain(std::move(terrain)),
           lighting(std::move(lighting)) {
         /* Учитываем ладшафт*/
@@ -73,9 +71,8 @@ export class Scene {
         stats.totalTrianglesCount += terrain.asObject().mesh.indices.size() / 3;
     }
 
-    void update(double elapsedTime) {
+    void update(const Camera& camera, double elapsedTime) {
         time += static_cast<float>(elapsedTime);
-        camera.update(elapsedTime);
 
         terrain.followCamera(camera.getEye());
     }

@@ -14,6 +14,8 @@ import model.material;
 import model.mesh;
 import scene.skybox;
 import scene.terrain;
+import scene.camera;
+import renderer.shadowmap;
 
 export class Rasterizer {
     std::vector<vec3> transformedNormals;
@@ -62,6 +64,8 @@ export class Rasterizer {
 
     void runScreenStages(Framebuffer& buffer, const shaders::FrameUniforms& frameUniforms);
 
+    void renderShadowMap(ShadowMap& shadowMap, const Scene& scene);
+
    public:
     Rasterizer() {
         transformedNormals.reserve(1024);
@@ -70,7 +74,9 @@ export class Rasterizer {
         transformedTexcoords.reserve(1024);
     }
 
-    void drawScene(Framebuffer& buffer, const Scene& scene);
+    void drawScene(Framebuffer& buffer, const Scene& scene, const Camera& camera);
+
+    ShadowMap buildShadowMap(int resolution, const Scene& scene);
 
     std::size_t getPassIndex() const { return passIndex; }
 
