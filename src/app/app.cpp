@@ -42,14 +42,14 @@ namespace {
 Camera makeCamera(int width, int height, vec3 eye = vec3(0, 0, 0)) {
     constexpr float pi = std::numbers::pi_v<float>;
     return Camera(std::move(eye), 0.0f, 0.0f, 90.0f * pi / 180.0f,
-                  static_cast<float>(width) / static_cast<float>(height), 0.0f, 100.0f);
+                  static_cast<float>(width) / static_cast<float>(height), 0.01f, 100.0f);
 }
 
 Scene::Lighting makeLighting() {
     Scene::Lighting lighting;
     lighting.ambientColor = Color(0.15, 0.15, 0.15, 1);
     lighting.light.color = Color(1, 1, 1, 1);
-    lighting.light.direction = normalize(vec3(1, 0, 0));
+    lighting.light.direction = normalize(vec3(1, 1, 0));
     return lighting;
 }
 
@@ -300,7 +300,7 @@ void App::drawUI() {
 
             ImGui::SeparatorText("Camera");
             ImGui::SliderFloat("Fov", &camera.fov, 0.05f, 3.14f, "%.2f");
-            ImGui::SliderFloat("ZNear", &camera.zNear, 0.0, 20.0, "%.1f");
+            ImGui::SliderFloat("ZNear", &camera.zNear, 0.01f, 20.0, "%.2f");
             ImGui::SliderFloat("ZFar", &camera.zFar, 20.0, 100.0f, "%.1f");
             if (ImGui::Checkbox("Follow terrain", &followTerrain)) {
                 std::swap(savedCamera, camera);

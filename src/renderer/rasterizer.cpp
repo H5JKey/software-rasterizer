@@ -2,6 +2,7 @@ module;
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <print>
 #include <limits>
 
 module renderer.rasterizer;
@@ -382,6 +383,8 @@ void Rasterizer::drawScene(Framebuffer& buffer, const Scene& scene, const Camera
     runScreenStages(buffer, frameUniforms);
 }
 
+
+
 ShadowMap Rasterizer::buildShadowMap(int resolution, const Scene& scene) {
     constexpr float inf = std::numeric_limits<float>::infinity();
 
@@ -404,7 +407,9 @@ ShadowMap Rasterizer::buildShadowMap(int resolution, const Scene& scene) {
 
     ShadowMap shadowMap(resolution);
 
-    if (!hasCasters) return shadowMap;
+    if (!hasCasters) {
+        return shadowMap;
+    }
 
     const vec3 direction = normalize(scene.lighting.light.direction);
     const vec3 up = (std::abs(direction.y) > 0.99f) ? vec3(0, 0, 1) : vec3(0, 1, 0);
@@ -414,9 +419,9 @@ ShadowMap Rasterizer::buildShadowMap(int resolution, const Scene& scene) {
     const float radius = length(bounds.size()) * 0.5f;
     const float margin = 0.05f * radius;
 
-    const vec3 eye = center - direction * (2.0f * radius + 1.0f);
+    const vec3 eye = center + direction * (2.0f * radius + 1.0f);
 
-    const mat4 view = lookAt(eye, -direction, up);
+    const mat4 view = lookAt(eye, direction, up);
 
     vec3 vmin(inf, inf, inf);
     vec3 vmax(-inf, -inf, -inf);
@@ -443,7 +448,7 @@ void Rasterizer::renderShadowMap(ShadowMap& shadowMap, const Scene& scene) {
     shaders::FrameUniforms frame{
         .VP = &shadowMap.lightVP,
         .lighting = &scene.lighting,
-        .zNear = 0.0f,
+        .zNear = 0.01f,
         .zFar = 1.0f,
     };
     shadowMap.buffer.clear();
