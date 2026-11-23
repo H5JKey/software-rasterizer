@@ -23,11 +23,11 @@ inline constexpr FragmentShader normalsStages[] = {normalsShader};
 inline constexpr FragmentShader texcoordsStages[] = {texcoordsShader};
 inline constexpr FragmentShader mipLevelStages[] = {mipLevelShader};
 
-inline constexpr ScreenShader skyboxStages[] = {skyboxShader};
+inline constexpr ScreenShader screenStage[] = {skyboxShader, fxaaShader};
 inline constexpr ScreenShader depthStages[] = {normalizeDepthShader};
 
 inline constexpr Pipeline passes[] = {
-    {.name = "Main", .fragmentShaders = lightingStages, .screenShaders = skyboxStages},
+    {.name = "Main", .fragmentShaders = lightingStages, .screenShaders = screenStage},
     {.name = "Unlit", .fragmentShaders = unlitStages},
     {.name = "Depth", .screenShaders = depthStages},
     {.name = "Normals", .fragmentShaders = normalsStages},

@@ -48,7 +48,7 @@ export class App {
     std::size_t frame = 0;
     bool followTerrain = false;
     bool showShadows = true;
-    bool useAA = false;
+    bool useAA = true;
     Camera camera;
     Camera savedCamera;
     ShadowMap shadowMap;

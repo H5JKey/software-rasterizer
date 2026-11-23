@@ -1,9 +1,11 @@
 module;
 #include <cstddef>
+#include <vector>
 
 export module renderer.shaders:contract;
 
 import math;
+import renderer.image;
 import model.material;
 import scene.scene;
 import scene.skybox;
@@ -22,6 +24,7 @@ struct FrameUniforms {
     float zNear = 0.0f;
     float zFar = 1.0f;
     float time = 0.0f;
+    bool fxaaEnabled = false;
 };
 
 struct DrawUniforms {
@@ -67,6 +70,8 @@ struct ScreenShaderInput {
     Color color;
     float minDepth;
     float maxDepth;
+    const Image* source = nullptr;
+    const std::vector<float>* luma = nullptr;
 };
 
 using ScreenShader = Color (*)(const ScreenShaderInput&, const FrameUniforms&);

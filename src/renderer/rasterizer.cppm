@@ -6,6 +6,7 @@ module;
 export module renderer.rasterizer;
 
 import renderer.framebuffer;
+import renderer.image;
 import math;
 import scene.scene;
 import renderer.shaders;
@@ -43,6 +44,8 @@ export class Rasterizer {
     std::vector<RasterTriangle> rasterTriangles;
     std::vector<shaders::DrawUniforms> drawUniformsPool;
     std::vector<std::vector<std::size_t>> tileTriangleIndices;
+    Image screenSource{0, 0};
+    std::vector<float> screenLuma;
 
     static constexpr int tileSize = 32;
 
@@ -74,7 +77,8 @@ export class Rasterizer {
         transformedTexcoords.reserve(1024);
     }
 
-    void drawScene(Framebuffer& buffer, const Scene& scene, const Camera& camera, const ShadowMap* shadowMap);
+    void drawScene(Framebuffer& buffer, const Scene& scene, const Camera& camera, const ShadowMap* shadowMap,
+                   bool enableFXAA = false);
 
     ShadowMap buildShadowMap(int resolution, const Scene& scene);
 

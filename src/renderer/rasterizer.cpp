@@ -2,8 +2,8 @@ module;
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
-#include <print>
 #include <limits>
+#include <print>
 
 module renderer.rasterizer;
 
@@ -330,32 +330,58 @@ void Rasterizer::runScreenStages(Framebuffer& buffer, const shaders::FrameUnifor
     }
 
     auto& image = buffer.image();
-#pragma omp parallel for schedule(static) if (buffer.width * buffer.height >= 16384)
-    for (int y = 0; y < buffer.height; y++) {
-        std::size_t row = static_cast<std::size_t>(y) * buffer.width;
-        for (int x = 0; x < buffer.width; x++) {
-            std::size_t idx = row + x;
-            shaders::ScreenShaderInput input{
-                .x = x,
-                .y = y,
-                .ndcX = 2.0f * (static_cast<float>(x) + 0.5f) / static_cast<float>(buffer.width) - 1.0f,
-                .ndcY = 2.0f * (static_cast<float>(y) + 0.5f) / static_cast<float>(buffer.height) - 1.0f,
-                .depth = depth[idx],
-                .color = image[idx],
-                .minDepth = minDepth,
-                .maxDepth = maxDepth,
-            };
+    const std::size_t pixelCount = static_cast<std::size_t>(buffer.width) * static_cast<std::size_t>(buffer.height);
 
-            for (const shaders::ScreenShader stage : pipeline.screenShaders) {
-                input.color = stage(input, frameUniforms);
+    for (const shaders::ScreenShader stage : pipeline.screenShaders) {
+        const bool needsNeighbourhood = stage == shaders::fxaaShader;
+        if (needsNeighbourhood && !frameUniforms.fxaaEnabled) continue;
+
+        const Image* source = &image;
+        const std::vector<float>* luma = nullptr;
+
+        if (needsNeighbourhood) {
+            if (screenSource.width != buffer.width || screenSource.height != buffer.height) {
+                screenSource.resize(buffer.width, buffer.height);
+            }
+            screenLuma.resize(pixelCount);
+            std::copy(image.pixels.begin(), image.pixels.end(), screenSource.pixels.begin());
+
+#pragma omp parallel for schedule(static) if (pixelCount >= 16384)
+            for (std::size_t i = 0; i < pixelCount; ++i) {
+                const Color& color = screenSource.pixels[i];
+                screenLuma[i] = 0.299f * color.r + 0.587f * color.g + 0.114f * color.b;
             }
 
-            image[idx] = input.color;
+            source = &screenSource;
+            luma = &screenLuma;
+        }
+
+#pragma omp parallel for schedule(static) if (buffer.width * buffer.height >= 16384)
+        for (int y = 0; y < buffer.height; y++) {
+            std::size_t row = static_cast<std::size_t>(y) * buffer.width;
+            for (int x = 0; x < buffer.width; x++) {
+                std::size_t idx = row + x;
+                shaders::ScreenShaderInput input{
+                    .x = x,
+                    .y = y,
+                    .ndcX = 2.0f * (static_cast<float>(x) + 0.5f) / static_cast<float>(buffer.width) - 1.0f,
+                    .ndcY = 2.0f * (static_cast<float>(y) + 0.5f) / static_cast<float>(buffer.height) - 1.0f,
+                    .depth = depth[idx],
+                    .color = source->pixels[idx],
+                    .minDepth = minDepth,
+                    .maxDepth = maxDepth,
+                    .source = source,
+                    .luma = luma,
+                };
+
+                image[idx] = stage(input, frameUniforms);
+            }
         }
     }
 }
 
-void Rasterizer::drawScene(Framebuffer& buffer, const Scene& scene, const Camera& camera, const ShadowMap* shadowMap) {
+void Rasterizer::drawScene(Framebuffer& buffer, const Scene& scene, const Camera& camera, const ShadowMap* shadowMap,
+                           bool enableFXAA) {
     const mat4 VP = camera.getPerspectiveMatrix() * camera.getLookAtMatrix();
     const mat4 inverseVP = VP.inverse();
     const vec3 cameraPosition = camera.getEye();
@@ -368,7 +394,8 @@ void Rasterizer::drawScene(Framebuffer& buffer, const Scene& scene, const Camera
                                                .shadowMap = shadowMap,
                                                .zNear = camera.zNear,
                                                .zFar = camera.zFar,
-                                               .time = scene.time};
+                                               .time = scene.time,
+                                               .fxaaEnabled = enableFXAA};
 
     rasterTriangles.clear();
     drawUniformsPool.clear();
@@ -383,8 +410,6 @@ void Rasterizer::drawScene(Framebuffer& buffer, const Scene& scene, const Camera
 
     runScreenStages(buffer, frameUniforms);
 }
-
-
 
 ShadowMap Rasterizer::buildShadowMap(int resolution, const Scene& scene) {
     constexpr float inf = std::numeric_limits<float>::infinity();
