@@ -36,10 +36,18 @@ export class Camera {
     constexpr mat4 getLookAtMatrix() const { return lookAt(eye, forward, up); }
     constexpr mat4 getPerspectiveMatrix() const { return perspective(fov, aspect, zNear, zFar); }
     constexpr vec3 getEye() const { return eye; }
+    constexpr void setEye(vec3 position) { eye = position; }
 
-    void update(double dt) {
+    void update(double dt, bool walking = false) {
         buildCoordinateSystem();
-        vec3 worldVel = right * velocity.x + up * velocity.y + forward * velocity.z;
+        vec3 worldVel;
+        if (walking) {
+            const vec3 flatForward = normalize(vec3(forward.x, 0.0f, forward.z));
+            const vec3 flatRight = normalize(vec3(right.x, 0.0f, right.z));
+            worldVel = flatRight * velocity.x + flatForward * velocity.z;
+        } else {
+            worldVel = right * velocity.x + up * velocity.y + forward * velocity.z;
+        }
 
         eye += worldVel * dt * 20.f;
 

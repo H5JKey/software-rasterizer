@@ -28,6 +28,8 @@ export class App {
     static constexpr float baseBottomPanelHeight = 33.0f;
     static constexpr float baseTopPanelHeight = 33.0f;
 
+    static constexpr float walkEyeHeight = 1.0f;
+
     float leftPanelWidth = baseLeftPanelWidth;
     float rightPanelWidth = baseRightPanelWidth;
     float bottomPanelHeight = baseBottomPanelHeight;
@@ -46,11 +48,10 @@ export class App {
     Rasterizer rasterizer;
     std::array<float, 512> fpsHistory;
     std::size_t frame = 0;
-    bool followTerrain = false;
+    bool walkMode = false;
     bool showShadows = true;
     bool useAA = true;
     Camera camera;
-    Camera savedCamera;
     ShadowMap shadowMap;
 
     struct MouseInfo {

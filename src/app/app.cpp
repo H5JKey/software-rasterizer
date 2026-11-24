@@ -47,7 +47,7 @@ Camera makeCamera(int width, int height, vec3 eye = vec3(0, 0, 0)) {
 
 Scene::Lighting makeLighting() {
     Scene::Lighting lighting;
-    lighting.ambientColor = Color(0.2, 0.2, 0.2, 1);
+    lighting.ambientColor = Color(0.3, 0.3, 0.3, 1);
     lighting.light.color = Color(1, 1, 1, 1);
     lighting.light.direction = normalize(vec3(0.7, 1, 0.5));
     return lighting;
@@ -140,8 +140,7 @@ App::App(int vw, int vh, int rw, int rh, const std::string& title,
                    "resources/textures/skybox/hills_ft.png", "resources/textures/skybox/hills_bk.png",
                    "resources/textures/skybox/hills_up.jpg", "resources/textures/skybox/hills_dn.png"),
             Terrain(67 + 42, "resources/textures/Grass_09-256x256.png", "resources/textures/Grass_11-256x256.png")),
-      camera(makeCamera(width, height, vec3(0, 2, 0))),
-      savedCamera(makeCamera(width, height, vec3(0, scene.terrain.heightScale, 0))) {
+      camera(makeCamera(width, height, vec3(0, scene.terrain.heightAt(0, 0) + walkEyeHeight, 0))) {
     glfwSetErrorCallback(
         [](int error, const char* description) { std::println(stderr, "GLFW error {}: {}", error, description); });
 
@@ -244,12 +243,11 @@ void App::update(double elapsedTime) {
     if (framebuffer.width != renderWidth || framebuffer.height != renderHeight) {
         framebuffer.resize(renderWidth, renderHeight);
     }
-    if (followTerrain) {
-        camera.yaw = 0;
-        camera.pitch = 0;
-        camera.velocity += vec3(0, 0, -1);
+    camera.update(elapsedTime, walkMode);
+    if (walkMode) {
+        const vec3 eye = camera.getEye();
+        camera.setEye(vec3(eye.x, scene.terrain.heightAt(eye.x, eye.z) + walkEyeHeight, eye.z));
     }
-    camera.update(elapsedTime);
     scene.update(camera, elapsedTime);
 }
 
@@ -318,8 +316,8 @@ void App::drawUI() {
             ImGui::SliderFloat("Fov", &camera.fov, 0.05f, 3.14f, "%.2f");
             ImGui::SliderFloat("ZNear", &camera.zNear, 0.01f, 20.0, "%.2f");
             ImGui::SliderFloat("ZFar", &camera.zFar, 20.0, 100.0f, "%.1f");
-            if (ImGui::Checkbox("Follow terrain", &followTerrain)) {
-                std::swap(savedCamera, camera);
+            if (ImGui::Checkbox("Walk mode", &walkMode) && walkMode) {
+                camera.velocity = vec3(0, 0, 0);
             }
 
             ImGui::End();
